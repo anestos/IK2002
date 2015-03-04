@@ -162,25 +162,3 @@ apply_socket(_Controller, {error, Reason}, _Fun) ->
 	io:format("Something wrong happened: ~p~n", [Reason]),
 	exit(dead).
 
-% Input handler test case
-handler(Socket) ->
-	case gen_tcp:recv(Socket, 0) of
-		{ok, Data} ->
-			printer(binary_to_list(Data)),
-			gen_tcp:close(Socket),
-			handler(Socket);
-		{error, closed} -> ok
-	end.
-
-printer(Data) ->
-	%io:format("Data size: ~p~n", [bit_size(A)]),
-	case Data of
-		"2" -> 
-			io:format("Data received: 2~n");
-		"3" ->
-			io:format("Going to sleep~n"),
-			timer:sleep(10000),
-			io:format("Data received: 3~n");
-		Other ->
-			io:format("Something: ~p~n", [Other])
-	end.
