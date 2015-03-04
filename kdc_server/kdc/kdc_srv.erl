@@ -24,7 +24,7 @@ write2file(Client) ->
 
 try_read({error, _Reason}) ->
 	[];
-try_read({ok, Terms}) ->
+try_read({ok, [Terms]}) ->
 	Terms.
 
 add2list([List], Client) ->
@@ -66,7 +66,7 @@ handler(Socket) ->
 		{ok, Data} ->
 			{ok, {Address, Port}} = inet:peername(Socket),
 			io:format("Client IP: ~p port: ~p~n", [Address, Port]),
-			case find_client(Address) of
+			case find_client(inet_parse:ntoa(Address)) of
 				#clients{user_name=Username,
 					ip_addr=Ip_addr,
 					crypto_key=Key} ->
