@@ -40,6 +40,8 @@ public class MainActivity extends Activity {
         txtName = (EditText) findViewById(R.id.name);
         txtPassword = (EditText) findViewById(R.id.password);
 
+
+
         // Hiding the action bar
         getActionBar().hide();
 

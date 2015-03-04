@@ -1,7 +1,7 @@
 -module(tcp_srv).
 -export([start_srv/2, stop_srv/1]).
 %Only for tests
--export([handler/1]).
+%%-export([handler/1]).
 
 -define(MAX_INSTANCES, 20).
 -define(PACKET_SIZE_LENGTH, 4).

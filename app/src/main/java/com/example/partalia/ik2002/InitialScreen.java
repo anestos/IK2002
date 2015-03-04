@@ -13,8 +13,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-
-
 import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -89,15 +87,23 @@ public class InitialScreen extends Activity {
                         cipher.init(Cipher.ENCRYPT_MODE, key);
                         AlgorithmParameters params = cipher.getParameters();
                         byte[] iv = params.getParameterSpec(IvParameterSpec.class).getIV();
+                        System.out.println(""+iv.length);
 
                         byte[] output = cipher.doFinal(toEncrypt.getBytes());
 
-                        System.out.println("" + Arrays.toString(output));
+                        toSend = new byte[iv.length + output.length + 1];
+                        System.arraycopy(iv, 0, toSend, 0, iv.length);
+                        System.arraycopy(output, 0, toSend, iv.length, output.length);
 
-                        toSend = output;
 
                         Thread send = new Thread(new Sender(toSend, txtServerIP.getText().toString(), 8080, false));
                         send.start();
+
+                        Intent intent = new Intent(InitialScreen.this,
+                                ChatActivity.class);
+                        intent.putExtra("peerName", peerName);
+                        intent.putExtra("message", message.getText().toString());
+                        startActivity(intent);
 
                     } catch (NoSuchAlgorithmException e) {
                         e.printStackTrace();

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">IK2002</string>
+    <string name="app_name">IK2002 Project</string>
     <string name="title">Secure Lan Chat App</string>
     <string name="hello_world">Hello world!</string>
     <string name="hello_chat">Hello world!</string>
@@ -12,9 +12,9 @@
     <string name="btn_contact">Contact</string>
     <string name="btn_send">Send</string>
     <string name="lbl_message">Message</string>
-
+    <string name="action_close_conversation">Close Conversation</string>
     <string name="action_delete_key">Delete Key</string>
-    <string name="title_activity_chat">ChatActivity</string>
-    <string name="title_activity_initial_screen">InitialScreen</string>
+    <string name="title_activity_chat">Conversation</string>
+    <string name="title_activity_initial_screen">Create Private Key</string>
 </resources>
 
