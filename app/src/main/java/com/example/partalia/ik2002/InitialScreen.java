@@ -21,6 +21,10 @@ import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidParameterSpecException;
 import java.util.Arrays;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -87,17 +91,22 @@ public class InitialScreen extends Activity {
                         cipher.init(Cipher.ENCRYPT_MODE, key);
                         AlgorithmParameters params = cipher.getParameters();
                         byte[] iv = params.getParameterSpec(IvParameterSpec.class).getIV();
-                        System.out.println(""+iv.length);
+                        System.out.println("" + iv.length);
 
                         byte[] output = cipher.doFinal(toEncrypt.getBytes());
 
-                        toSend = new byte[iv.length + output.length + 1];
+                        toSend = new byte[iv.length + output.length];
                         System.arraycopy(iv, 0, toSend, 0, iv.length);
                         System.arraycopy(output, 0, toSend, iv.length, output.length);
 
 
-                        Thread send = new Thread(new Sender(toSend, txtServerIP.getText().toString(), 8080, false));
-                        send.start();
+                        ExecutorService executor = Executors.newFixedThreadPool(1);
+                        Callable<String> callable = new Sender(toSend, txtServerIP.getText().toString(), 8080, false);
+                        Future<String> send = executor.submit(callable);
+
+                        // Todo check send for ticket, bob and nonce1 value
+                        // Todo Do handshake with peer
+                        // Todo send msg to peer
 
                         Intent intent = new Intent(InitialScreen.this,
                                 ChatActivity.class);
@@ -130,8 +139,8 @@ public class InitialScreen extends Activity {
 
         });
 
-        // Todo send msg to peer
-        // Todo go to chat activity and continue chatting
+
+
     }
 
 

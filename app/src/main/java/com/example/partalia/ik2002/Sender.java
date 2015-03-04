@@ -4,8 +4,9 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.concurrent.Callable;
 
-public class Sender implements Runnable{
+public class Sender implements Callable<String> {
     private byte[] msg;
     private String ip;
     private int port;
@@ -21,7 +22,7 @@ public class Sender implements Runnable{
     }
 
     @Override
-    public void run() {
+    public String call() {
         try {
             socket = new Socket(ip, port);
             out = new DataOutputStream(socket.getOutputStream());
@@ -34,10 +35,25 @@ public class Sender implements Runnable{
             out.write(request);
             out.flush();
             out.close();
+
+           /* int data = inputStream.read();
+            String theChar = "";
+            while(data != -1){
+                theChar += (char) data;
+                data = inputStream.read();
+            }*/
+
+            BufferedReader fromServer = new BufferedReader( new InputStreamReader(socket.getInputStream()));
+            String line = fromServer.readLine();
+
+            inputStream.close();
+
             socket.close();
+            return line;
 
         }catch (Exception ex){
             ex.printStackTrace();
         }
+        return "socket problem";
     }
 }
