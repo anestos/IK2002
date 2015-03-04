@@ -1,18 +1,32 @@
 package com.example.partalia.ik2002;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Button;
+import android.widget.EditText;
 
 
 public class ChatActivity extends Activity {
+    private Button btnSend;
+    private EditText inputMsg;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
+        btnSend = (Button) findViewById(R.id.btnSend);
+        inputMsg = (EditText) findViewById(R.id.inputMsg);
+
+
     }
 
 
@@ -31,7 +45,17 @@ public class ChatActivity extends Activity {
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
+        if (id == R.id.action_delete_key) {
+            SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = sharedPref.edit();
+            editor.putString("user_name", "nada");
+            editor.putString("user_key", "key");
+            editor.commit();
+
+            Intent intent = new Intent(ChatActivity.this,
+                    MainActivity.class);
+
+            startActivity(intent);
             return true;
         }
 
