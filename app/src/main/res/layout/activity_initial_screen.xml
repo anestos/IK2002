@@ -1,6 +1,8 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
-    android:layout_height="match_parent" android:paddingLeft="16dp"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingLeft="16dp"
     android:paddingRight="16dp"
     android:paddingTop="16dp"
     android:paddingBottom="16dp"
@@ -8,23 +10,23 @@
     android:background="@color/actionbar"
     tools:context="com.example.partalia.ik2002.InitialScreen">
 
-    <TextView
+   <!-- <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="15dp"
         android:text="@string/title"
         android:textColor="@color/white"
-        android:textSize="13dp" />
+        android:textSize="13dp" />-->
 
-    <TextView
+   <!-- <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="10dp"
         android:layout_marginTop="15dp"
         android:text="@string/enter_peer_name"
         android:textColor="@color/white"
-        android:textSize="18dp" />
+        android:textSize="18dp" />-->
 
     <EditText
         android:id="@+id/peer_name"
@@ -35,14 +37,14 @@
         android:background="@color/white"
         android:padding="10dp" />
 
-    <TextView
+   <!-- <TextView
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
     android:layout_marginTop="15dp"
     android:text="@string/enter_server_ip"
     android:textColor="@color/white"
-    android:textSize="18dp" />
+    android:textSize="18dp" />-->
 
     <EditText
         android:id="@+id/server_ip"
@@ -52,14 +54,14 @@
         android:layout_marginTop="10dp"
         android:background="@color/white"
         android:padding="10dp" />
-    <TextView
+<!--    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="10dp"
         android:layout_marginTop="15dp"
         android:textColor="@color/white"
         android:text="@string/lbl_message"
-        android:textSize="18dp" />
+        android:textSize="18dp" />-->
 
     <EditText
         android:id="@+id/message"
@@ -82,4 +84,5 @@
         android:paddingRight="25dp"
         android:text="@string/btn_contact"
         android:textColor="@color/white" />
+
 </LinearLayout>

@@ -1,9 +1,11 @@
 package com.example.partalia.ik2002;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.app.Activity;
 import android.content.Intent;
+import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -41,6 +43,7 @@ public class MainActivity extends Activity {
         // Hiding the action bar
         getActionBar().hide();
 
+
         btnGenerate.setOnClickListener(new View.OnClickListener() {
 
             @Override
@@ -55,20 +58,20 @@ public class MainActivity extends Activity {
 
                     byte[] salt = ip.getBytes();
 
+
+
                     try {
                         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
                         KeySpec keyspec = new PBEKeySpec(password.toCharArray(), salt, 4000, 256);
                         Key key = factory.generateSecret(keyspec);
 
-                        String filename = "keystore.txt";
-                        String string = Arrays.toString(key.getEncoded());
-                        Context context = getApplicationContext();
-                       // File file = new File(context.getFilesDir(), filename);
+                        String stringedKey = Base64.encodeToString(key.getEncoded(), Base64.DEFAULT);
 
-                        FileOutputStream outputStream;
-                        outputStream = openFileOutput(filename, Context.MODE_PRIVATE);
-                        outputStream.write(string.getBytes());
-                        outputStream.close();
+                        SharedPreferences sharedPref = getSharedPreferences("myStorage",Context.MODE_PRIVATE);
+                        SharedPreferences.Editor editor = sharedPref.edit();
+                        editor.putString("user_name", name);
+                        editor.putString("user_key", stringedKey);
+                        editor.commit();
 
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -77,7 +80,6 @@ public class MainActivity extends Activity {
 
                     Intent intent = new Intent(MainActivity.this,
                             InitialScreen.class);
-                    intent.putExtra("name", name);
 
                     startActivity(intent);
 

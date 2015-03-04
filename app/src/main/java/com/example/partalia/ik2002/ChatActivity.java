@@ -1,6 +1,9 @@
 package com.example.partalia.ik2002;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
@@ -32,6 +35,16 @@ public class ChatActivity extends Activity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_delete_key) {
+            SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = sharedPref.edit();
+            editor.putString("user_name", "nada");
+            editor.putString("user_key", "key");
+            editor.commit();
+
+            Intent intent = new Intent(ChatActivity.this,
+                    MainActivity.class);
+
+            startActivity(intent);
             return true;
         }
 
