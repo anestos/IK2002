@@ -3,6 +3,7 @@
     package="com.example.partalia.ik2002" >
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"
@@ -10,7 +11,7 @@
         android:label="@string/app_name"
         android:theme="@style/ChatAppTheme" >
         <activity
-            android:name=".MainActivity"
+            android:name=".InitialScreen"
             android:label="@string/app_name"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustPan" >
@@ -23,6 +24,10 @@
         <activity
             android:name=".ChatActivity"
             android:label="@string/title_activity_chat" >
+        </activity>
+        <activity
+            android:name=".MainActivity"
+            android:label="MainActivity" >
         </activity>
     </application>
 

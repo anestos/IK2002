@@ -31,7 +31,7 @@ public class ChatActivity extends Activity {
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
+        if (id == R.id.action_delete_key) {
             return true;
         }
 
