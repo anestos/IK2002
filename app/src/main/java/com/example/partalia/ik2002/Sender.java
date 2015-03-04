@@ -18,7 +18,6 @@ public class Sender implements Runnable{
         this.ip = ip;
         this.port = port;
         this.peer = peer;
-
     }
 
     @Override
