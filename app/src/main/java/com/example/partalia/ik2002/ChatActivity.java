@@ -53,6 +53,8 @@ public class ChatActivity extends Activity {
         adapter = new MessagesListAdapter(this, listMessages);
         listViewMessages.setAdapter(adapter);
 
+        // Todo  start communication socket (handle incoming messages)
+        sendMessageToPeer(initialMesssage);
         Message im = new Message(name, initialMesssage, true);
         appendMessage(im);
 

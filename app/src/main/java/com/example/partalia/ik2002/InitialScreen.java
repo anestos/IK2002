@@ -67,6 +67,8 @@ public class InitialScreen extends Activity {
             key = new SecretKeySpec(keytmp.getEncoded(), "AES");
         }
 
+        // Todo server start
+
 
         btnContact.setOnClickListener(new View.OnClickListener() {
 
@@ -75,8 +77,13 @@ public class InitialScreen extends Activity {
 
                 if (txtPeerName.getText().toString().trim().length() > 0 && txtServerIP.getText().toString().length() > 0 && message.getText().toString().length() > 0) {
 
+                    // Todo Server stop
+
                     String myName = name;
                     String peerName = txtPeerName.getText().toString();
+
+                    Toast.makeText(getApplicationContext(), "Please wait, contacting "+peerName, Toast.LENGTH_LONG).show();
+
                     String toEncrypt = "";
                     byte[] toSend;
                     byte[] random = new byte[8];
@@ -104,12 +111,14 @@ public class InitialScreen extends Activity {
                         Callable<String> callable = new Sender(toSend, txtServerIP.getText().toString(), 8080, false);
                         Future<String> send = executor.submit(callable);
 
-                        // Todo check send for ticket, bob and nonce1 value
-                        // Todo Do handshake with peer
-                        // Todo send msg to peer
+                        KdcReply kdcReply = new KdcReply(send, key);
+                        if (kdcReply.getNonce().equals(random) && kdcReply.getPeerName().equals(peerName)) {
+                            // Todo Do handshake with peer
 
-                        Intent intent = new Intent(InitialScreen.this,
-                                ChatActivity.class);
+                        }
+
+                        //Todo if handshake is completed correctly
+                        Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
                         intent.putExtra("peerName", peerName);
                         intent.putExtra("message", message.getText().toString());
                         startActivity(intent);
