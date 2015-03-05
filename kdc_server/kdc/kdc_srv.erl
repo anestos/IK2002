@@ -1,6 +1,8 @@
 -module(kdc_srv).
 -compile(export_all).
 
+-define(STORAGE, "store.dat").
+
 -record(clients, {user_name = username,
 		ip_addr = ipAddr,
 		crypto_key = cryptoKey}).
@@ -16,15 +18,18 @@ add_client(Username, Ipaddr) ->
 	write2file(Client).
 
 write2file(Client) ->
-	Terms = try_read(file:consult("store.dat")),
-	io:format("Terms: ~p~n", [Terms]),
-	Tmp = lists:append(Terms, [Client]),
-	file:write_file("store.dat", io_lib:fwrite("~p.\n", [Tmp])).
+	Terms = try_read(file:consult(?STORAGE)),
+	Tmp = [Client | Terms],
+	unconsult(?STORAGE, Tmp).
 
+unconsult(File, L) ->
+	{ok, S} = file:open(File, write),
+	lists:foreach(fun(X) -> io:format(S, "~p.~n",[X]) end, L),
+	file:close(S).
 
 try_read({error, _Reason}) ->
 	[];
-try_read({ok, [Terms]}) ->
+try_read({ok, Terms}) ->
 	Terms.
 
 add2list([List], Client) ->
@@ -34,7 +39,7 @@ add2list([List], Client) ->
 gen_key(Username, Ipaddr) ->
 	Password = getpass(),
 	{Salt, Iterations, DerivedLength} = {list_to_binary(Ipaddr), 4000, 32},
-	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
+	{ok, Key} = pbkdf2:pbkdf2({hmac, sha}, Password, Salt, Iterations, DerivedLength),
 	Key.
 	
 getpass() ->
@@ -57,15 +62,15 @@ getpass() ->
     end.
 
 find_client(Address) ->
-	[Terms] = try_read(file:consult("store.dat")),
+	Terms = try_read(file:consult(?STORAGE)),
 	Result = lists:keyfind(Address, 3, Terms),
+	io:format("Result: ~p~n", [Result]),
 	Result.
 	
 handler(Socket) ->
 	case gen_tcp:recv(Socket, 0) of
 		{ok, Data} ->
 			{ok, {Address, Port}} = inet:peername(Socket),
-			io:format("Client IP: ~p port: ~p~n", [Address, Port]),
 			case find_client(inet_parse:ntoa(Address)) of
 				#clients{user_name=Username,
 					ip_addr=Ip_addr,
@@ -73,7 +78,8 @@ handler(Socket) ->
 						io:format("Username: ~p~n", [Username]),
 						io:format("IP: ~p~n", [Ip_addr]),
 						io:format("Key: ~p~n", [Key]),
-						io:format("Clear: ~p~n", [decrypt(Data, Key)]);
+						Clear = decrypt(Data, Key),
+						io:format("Clear: ~p~n", [Clear]);
 				[] -> io:format("User not foun!")
 			end,
 			gen_tcp:close(Socket),
@@ -81,14 +87,15 @@ handler(Socket) ->
 		{error, closed} -> error
 	end.
 
-decrypt(Data, Key) ->
+decrypt(EncData, Key) ->
 	% First 16 bytes are the IV
-	Iv = binary:part(Data, 0, 16),
 	% The rest is the cipher
-	Cipher = binary:part(Data, 17, byte_size(Data)),
-	Clear = crypto:aes_ctr_decrypt(Key, Iv, Data),
+	Data = base64:decode(EncData),
+	Data_size = bit_size(Data),
+	Cipher_size = Data_size - 128,
+	<<Iv:128/bitstring, Cipher:Cipher_size/bitstring>> = Data,
+	Clear = crypto:aes_ctr_decrypt(Key, Iv, Cipher),
 	binary_to_list(Clear).
-	
 	
 
 tester(Address) ->
