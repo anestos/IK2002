@@ -39,7 +39,7 @@ add2list([List], Client) ->
 gen_key(Username, Ipaddr) ->
 	Password = getpass(),
 	{Salt, Iterations, DerivedLength} = {list_to_binary(Ipaddr), 4000, 32},
-	{ok, Key} = pbkdf2:pbkdf2({hmac, sha}, Password, Salt, Iterations, DerivedLength),
+	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
 	Key.
 	
 getpass() ->
@@ -79,7 +79,12 @@ handler(Socket) ->
 						io:format("IP: ~p~n", [Ip_addr]),
 						io:format("Key: ~p~n", [Key]),
 						Clear = decrypt(Data, Key),
-						io:format("Clear: ~p~n", [Clear]);
+						{Nonce, Msg} = get_message(Clear),
+						io:format("Clear: ~p~n", [Clear]),
+						Msg1 = binary_to_list(Msg),
+						io:format("Msg: ~p~n", [Msg1]),
+						Nonce1 = binary_to_list(Nonce),
+						io:format("Nonce: ~p~n", [Nonce1]);
 				[] -> io:format("User not foun!")
 			end,
 			gen_tcp:close(Socket),
@@ -90,13 +95,19 @@ handler(Socket) ->
 decrypt(EncData, Key) ->
 	% First 16 bytes are the IV
 	% The rest is the cipher
+	io:format("Encoded data: ~p~n", [EncData]),
 	Data = base64:decode(EncData),
+	KeyEnc = base64:encode(Key),
+	io:format("Key: ~p~n", [KeyEnc]),
 	Data_size = bit_size(Data),
 	Cipher_size = Data_size - 128,
 	<<Iv:128/bitstring, Cipher:Cipher_size/bitstring>> = Data,
-	Clear = crypto:aes_ctr_decrypt(Key, Iv, Cipher),
-	binary_to_list(Clear).
+	crypto:aes_ctr_decrypt(Key, Iv, Cipher).
 	
+
+% First 8 bytes of payload is the nonce
+get_message(<<Nonce:64/bitstring, Msg/bitstring>>) ->
+	{Nonce, Msg}.
 
 tester(Address) ->
 	#clients{user_name=Un, ip_addr=Ip, crypto_key=C} = find_client(Address),

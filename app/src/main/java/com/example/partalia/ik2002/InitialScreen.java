@@ -90,7 +90,9 @@ public class InitialScreen extends Activity {
                     SecureRandom rd = new SecureRandom();
                     rd.nextBytes(random);
 
-                    toEncrypt = Arrays.toString(random) + "|" + myName + "|" + peerName;
+                    byte[] rndEnc = org.bouncycastle.util.encoders.Base64.encode(random);
+                    System.out.println("Nonce: " + new String(rndEnc));
+                    toEncrypt = new String(rndEnc) + "|" + myName + "|" + peerName;
 
                     try {
 
@@ -106,16 +108,21 @@ public class InitialScreen extends Activity {
                         System.arraycopy(iv, 0, toSend, 0, iv.length);
                         System.arraycopy(output, 0, toSend, iv.length, output.length);
 
+                        byte[] keyEnc = org.bouncycastle.util.encoders.Base64.encode(key.getEncoded());
+                        System.out.println("Key: " + new String(keyEnc));
+
+                        byte[] encoded = org.bouncycastle.util.encoders.Base64.encode(toSend);
+                        System.out.println("Encoded: " + new String(encoded));
 
                         ExecutorService executor = Executors.newFixedThreadPool(1);
-                        Callable<String> callable = new Sender(toSend, txtServerIP.getText().toString(), 8080, false);
+                        Callable<String> callable = new Sender(encoded, txtServerIP.getText().toString(), 8080, false);
                         Future<String> send = executor.submit(callable);
 
-                        KdcReply kdcReply = new KdcReply(send, key);
+                        /*KdcReply kdcReply = new KdcReply(send, key);
                         if (kdcReply.getNonce().equals(random) && kdcReply.getPeerName().equals(peerName)) {
                             // Todo Do handshake with peer
 
-                        }
+                        }*/
 
                         //Todo if handshake is completed correctly
                         Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
