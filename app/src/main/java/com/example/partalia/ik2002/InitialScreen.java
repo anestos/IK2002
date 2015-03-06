@@ -38,10 +38,10 @@ import javax.crypto.spec.SecretKeySpec;
 public class InitialScreen extends Activity {
     private Button btnContact;
     private EditText txtPeerName;
-    private EditText txtServerIP;
     private EditText message;
     private String name;
     private Key key;
+    private String serverIp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,11 +49,11 @@ public class InitialScreen extends Activity {
         setContentView(R.layout.activity_initial_screen);
         btnContact = (Button) findViewById(R.id.btn_contact);
         txtPeerName = (EditText) findViewById(R.id.peer_name);
-        txtServerIP = (EditText) findViewById(R.id.server_ip);
         message = (EditText) findViewById(R.id.message);
 
         SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
         name = sharedPref.getString("user_name", "nada");
+        serverIp = sharedPref.getString("serverIp", "");
         String stringedKey = sharedPref.getString("user_key", "key");
 
         String ret = "";
@@ -75,7 +75,7 @@ public class InitialScreen extends Activity {
             @Override
             public void onClick(View v) {
 
-                if (txtPeerName.getText().toString().trim().length() > 0 && txtServerIP.getText().toString().length() > 0 && message.getText().toString().length() > 0) {
+                if (txtPeerName.getText().toString().trim().length() > 0 && message.getText().toString().length() > 0) {
 
                     // Todo Server stop
 
@@ -116,14 +116,14 @@ public class InitialScreen extends Activity {
                         System.out.println("Encoded: " + new String(encoded));
 
                         ExecutorService executor = Executors.newFixedThreadPool(1);
-                        Callable<String> callable = new Sender(encoded, txtServerIP.getText().toString(), 8080, false);
+                        Callable<String> callable = new Sender(encoded, serverIp , 8080, false);
                         Future<String> send = executor.submit(callable);
 
-                        /*KdcReply kdcReply = new KdcReply(send, key);
-                        if (kdcReply.getNonce().equals(random) && kdcReply.getPeerName().equals(peerName)) {
+                        KdcReply kdcReply = new KdcReply(send, key);
+                        //if (kdcReply.getNonce().equals(random) && kdcReply.getPeerName().equals(peerName)) {
                             // Todo Do handshake with peer
 
-                        }*/
+                        //}
 
                         //Todo if handshake is completed correctly
                         Intent intent = new Intent(InitialScreen.this, ChatActivity.class);

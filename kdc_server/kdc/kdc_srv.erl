@@ -44,7 +44,7 @@ gen_key(Username, Ipaddr) ->
 	
 gen_session_key() ->
 	Password = generate_password(10),
-	{Salt, Iterations, DerivedLength} = {generate_password(5), 4000, 32},
+	{Salt, Iterations, DerivedLength} = {list_to_binary(generate_password(5)), 4000, 32},
 	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
 	Key.
 
@@ -76,7 +76,8 @@ find_client_addr(Address) ->
 	io:format("Result: ~p~n", [Result]),
 	Result.
 
-find_client_addr_name(Peer_name) ->
+find_client_addr_name([Peer_name]) ->
+    io:format("Peer name to search: ~p~n", [Peer_name]),
 	Terms = try_read(file:consult(?STORAGE)),
 	Result = lists:keyfind(Peer_name, 2, Terms),
 	io:format("Result name: ~p~n", [Result]),
@@ -118,9 +119,9 @@ handler(Socket) ->
 									Ip_addr, Peer_session_key, Peer_key),
 								Reply = construct_reply(Nonce,
 									Peer_name, Peer_ip, Peer_session_key, Ticket, Key),
-								gen_tcp:send(Socket, Reply);
-							_ -> io:format("User not
-								found~n")
+								gen_tcp:send(Socket, Reply),
+								io:format("replying: ~p~n", [Reply]);
+							_ -> io:format("User not found~n")
 						end;
 
 
@@ -139,10 +140,11 @@ construct_ticket(Username, Ip_addr, Session_key, Peer_key) ->
 construct_reply(Nonce, Peer_name, Peer_ip, Peer_session_key, Ticket, Key) ->
 	Clear = [Nonce, Peer_name, Peer_ip, Peer_session_key, Ticket],
 	{Iv, Cipher} = encrypt(list_to_binary(Clear), Key),
+	io:format("IV: ~p~n", [Iv]),
 	[Iv, Cipher].
 	
 extract_msg(Msg) ->
-	[User_name | Peer_name] = string:tokens("|", Msg),
+	[User_name | Peer_name] = string:tokens(Msg,"|"),
 	{User_name, Peer_name}.
 
 decrypt(EncData, Key) ->

@@ -34,7 +34,7 @@ public class Sender implements Callable<String> {
             out.writeInt(request.length);
             out.write(request);
             out.flush();
-            out.close();
+
 
            /* int data = inputStream.read();
             String theChar = "";
@@ -47,7 +47,7 @@ public class Sender implements Callable<String> {
             String line = fromServer.readLine();
 
             inputStream.close();
-
+            out.close();
             socket.close();
             return line;
 

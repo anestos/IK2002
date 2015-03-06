@@ -12,18 +12,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
-
-
-import java.io.FileOutputStream;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
 import java.security.Key;
 import java.security.Security;
 import java.security.spec.KeySpec;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
@@ -32,6 +24,8 @@ public class MainActivity extends Activity {
     private Button btnGenerate;
     private EditText txtName;
     private EditText txtPassword;
+    private EditText txtServerIP;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,7 +35,7 @@ public class MainActivity extends Activity {
         btnGenerate = (Button) findViewById(R.id.btnJoin);
         txtName = (EditText) findViewById(R.id.name);
         txtPassword = (EditText) findViewById(R.id.password);
-
+        txtServerIP = (EditText) findViewById(R.id.server_ip);
 
 
         // Hiding the action bar
@@ -52,15 +46,18 @@ public class MainActivity extends Activity {
 
             @Override
             public void onClick(View v) {
-                if (txtName.getText().toString().trim().length() > 0 && txtPassword.getText().toString().length() > 0) {
+                if (txtName.getText().toString().trim().length() > 0 && txtPassword.getText().toString().length() > 0 && txtServerIP.getText().toString().length() > 0) {
 
                     String name = txtName.getText().toString().trim();
                     String password = txtPassword.getText().toString();
+                    String serverIp = txtServerIP.getText().toString();
 
                     Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 
                     WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
                     String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
+
+                    //Todo remove after local testing
                     ip = "127.0.0.1";
 
                     System.out.println("ip: "+ ip);
@@ -78,6 +75,7 @@ public class MainActivity extends Activity {
                         SharedPreferences sharedPref = getSharedPreferences("myStorage",Context.MODE_PRIVATE);
                         SharedPreferences.Editor editor = sharedPref.edit();
                         editor.putString("user_name", name);
+                        editor.putString("serverIp", serverIp);
                         editor.putString("user_key", stringedKey);
                         System.out.println("key:" +stringedKey);
                         editor.commit();
