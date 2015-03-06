@@ -42,7 +42,7 @@ public class KdcReply {
             /*System.out.println("IV: "+ new String(iv));
             System.out.println("msg: "+ new String(msg));*/
 
-           byte[] ivDec = org.bouncycastle.util.encoders.Base64.decode(iv);
+            byte[] ivDec = org.bouncycastle.util.encoders.Base64.decode(iv);
             byte[] encryptedDec = org.bouncycastle.util.encoders.Base64.decode(encrypted);
 
             Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding", "BC");
@@ -52,7 +52,7 @@ public class KdcReply {
             String decryptedString = new String(decrypted);
             String[] decryptedArray = decryptedString.split("\\|");
 
-            System.out.println("Decrypted Msg: "+ new String(decryptedArray[1]));
+            System.out.println("Decrypted Session Key: "+ new String(decryptedArray[3]));
 
             this.nonce = decryptedArray[0];
             this.peerName = decryptedArray[1];

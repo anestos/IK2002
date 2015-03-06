@@ -7,8 +7,8 @@ import android.content.SharedPreferences;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
-import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -17,8 +17,36 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import org.bouncycastle.util.Arrays;
+
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.security.AlgorithmParameters;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.spec.InvalidParameterSpecException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 
 public class ChatActivity extends Activity {
@@ -30,6 +58,12 @@ public class ChatActivity extends Activity {
     private ListView listViewMessages;
     private String name;
     private String peerName;
+    ServerReceiver socketServerThread;
+    ClientReceiver socketClientThread;
+    private ExecutorService ex;
+    private String peerIp;
+    private String initialMessageToSend;
+    private String initialMesssage;
 
 
     @Override
@@ -43,10 +77,9 @@ public class ChatActivity extends Activity {
 
         SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
         name = sharedPref.getString("user_name", "nada");
-
-        Intent i = getIntent();
-        String initialMesssage = i.getStringExtra("message");
-        peerName = i.getStringExtra("peerName");
+        peerName = sharedPref.getString("peerIp", "empty");
+        peerIp = sharedPref.getString("peerName", "empty");
+        initialMesssage = sharedPref.getString("initialMessage", "empty");
 
         listMessages = new ArrayList<Message>();
 
@@ -54,30 +87,51 @@ public class ChatActivity extends Activity {
         listViewMessages.setAdapter(adapter);
 
         // Todo  start communication socket (handle incoming messages)
-        sendMessageToPeer(initialMesssage);
-        Message im = new Message(name, initialMesssage, true);
-        appendMessage(im);
 
+        // Todo when to start it
+
+        ex = Executors.newFixedThreadPool(10);
+        //bob
+        if (initialMesssage.equals("empty")) {
+            socketServerThread = new ServerReceiver();
+            ex.submit(socketServerThread);
+        } else {
+            //alice
+            initialMessageToSend = encrypt_message(initialMesssage);
+            socketClientThread = new ClientReceiver(initialMessageToSend);
+            ex.submit(socketClientThread);
+            //send
+            Message im = new Message(name, initialMesssage, true);
+            appendMessage(im);
+        }
 
         btnSend.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
                 // Sending message to web socket server
-                sendMessageToPeer(inputMsg.getText().toString());
                 Message m = new Message(name, inputMsg.getText().toString(), true);
                 appendMessage(m);
+                if (initialMesssage.equals("empty")) {
+                    PrintWriter writer = socketServerThread.getPw();
+                    String encrypted = encrypt_message(m.getMessage());
+                    writer.println(encrypted);
+                } else {
+                    DataOutputStream writer = socketClientThread.getInput();
+                    String encrypted = encrypt_message(m.getMessage());
+                    try {
+                        writer.writeUTF(encrypted);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
                 // Clearing the input filed once message was sent
                 inputMsg.setText("");
             }
         });
 
-
-
-
-        // Appending the message to chat list
-
     }
+
 
 
     @Override
@@ -96,6 +150,7 @@ public class ChatActivity extends Activity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_close_conversation) {
+            //Todo close session
             Intent intent = new Intent(ChatActivity.this,
                     InitialScreen.class);
 
@@ -103,6 +158,7 @@ public class ChatActivity extends Activity {
 
         }
         if (id == R.id.action_delete_key) {
+            //Todo close session
             SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = sharedPref.edit();
             editor.putString("user_name", "nada");
@@ -117,10 +173,6 @@ public class ChatActivity extends Activity {
         }
 
         return super.onOptionsItemSelected(item);
-    }
-    private void sendMessageToPeer(String message) {
-        //Todo send Message to Peer
-
     }
     /**
      * Appending message to list view
@@ -165,4 +217,185 @@ public class ChatActivity extends Activity {
             e.printStackTrace();
         }
     }
+
+    // Server Code
+    private class ServerReceiver implements Runnable {
+        private ServerSocket sSocket;
+        private Socket cSocket;
+        private BufferedReader in;
+        private PrintWriter pw;
+        private String buffer;
+        private boolean running = true;
+
+        public PrintWriter getPw() {
+            return pw;
+        }
+        public void killIt(){
+            running = false;
+        }
+
+        @Override
+        public void run() {
+            try {
+                sSocket = new ServerSocket(9001);
+                cSocket = sSocket.accept();
+                pw = new PrintWriter(cSocket.getOutputStream(), true);
+                in = new BufferedReader(new InputStreamReader(cSocket.getInputStream()));
+                while (running) {
+
+                    buffer = in.readLine();
+
+                    // Todo decrypt to buffer kai constract Message add sti lista
+                    decrypt_and_show(buffer);
+                    if (buffer.equals("exit")) {
+                        running = false;
+                        pw.close();
+                        in.close();
+                    }
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    // Client Code
+    private class ClientReceiver implements Runnable {
+        private Socket cSocket;
+        private BufferedReader in;
+        private PrintWriter pw;
+        private String buffer;
+        private boolean running = true;
+        private DataOutputStream out;
+        private String msg;
+        private BufferedReader input;
+
+
+        public ClientReceiver (String msg){
+            this.msg = msg;
+
+        }
+
+
+        public DataOutputStream getInput() {
+            return out;
+        }
+        public void killIt(){
+            running = false;
+        }
+
+        @Override
+        public void run() {
+            try {
+                InetAddress serverAddr =InetAddress.getByName(peerIp);
+                cSocket = new Socket(peerIp, 9001);
+                out = new DataOutputStream(cSocket.getOutputStream());
+
+                InputStreamReader inputStream = new InputStreamReader(cSocket.getInputStream());
+                input = new BufferedReader(inputStream);
+
+                out.writeUTF(msg);
+
+                while (running && serverAddr.isReachable(1000)) {
+
+                    buffer = input.readLine();
+                    decrypt_and_show(buffer);
+
+                    if (buffer.equals("exit")) {
+                        running = false;
+                        pw.close();
+                        in.close();
+                    }
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    private Boolean decrypt_and_show(String buffer) {
+        System.out.println("Decrypting: "+buffer);
+
+        byte[] bufferDec = org.bouncycastle.util.encoders.Base64.decode(buffer);
+
+        SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
+        String stringedKey = sharedPref.getString("sessionKey", "key");
+        byte[] decodedKey = Base64.decode(stringedKey.getBytes(), Base64.DEFAULT);
+        SecretKey keytmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
+        Key myKey = new SecretKeySpec(keytmp.getEncoded(), "AES");
+
+        byte[] iv;
+        iv = java.util.Arrays.copyOfRange(bufferDec, 0, 16);
+
+        byte[] encrypted;
+        encrypted = java.util.Arrays.copyOfRange(bufferDec, 16, bufferDec.length);
+
+        Cipher cipher;
+        try {
+            cipher = Cipher.getInstance("AES/CTR/NoPadding", "BC");
+            cipher.init(Cipher.DECRYPT_MODE, myKey, new IvParameterSpec(iv));
+            byte[] decrypted = cipher.doFinal(encrypted);
+
+            Message msg = new Message(peerName, new String(decrypted), false);
+            appendMessage(msg);
+
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (NoSuchProviderException e) {
+            e.printStackTrace();
+        } catch (NoSuchPaddingException e) {
+            e.printStackTrace();
+        } catch (InvalidAlgorithmParameterException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        } catch (BadPaddingException e) {
+            e.printStackTrace();
+        } catch (IllegalBlockSizeException e) {
+            e.printStackTrace();
+        }
+return true;
+
+    }
+    private String encrypt_message(String message) {
+        Cipher cipher;
+        SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
+        String stringedKey = sharedPref.getString("sessionKey", "key");
+        byte[] decodedKey = Base64.decode(stringedKey.getBytes(), Base64.DEFAULT);
+        SecretKey keytmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
+        Key myKey = new SecretKeySpec(keytmp.getEncoded(), "AES");
+        byte[] iv = null;
+        byte[] output = null;
+        try {
+
+            cipher = Cipher.getInstance("AES/CTR/NoPadding", "BC");
+            cipher.init(Cipher.ENCRYPT_MODE, myKey);
+            AlgorithmParameters params = cipher.getParameters();
+             iv = params.getParameterSpec(IvParameterSpec.class).getIV();
+            System.out.println(""+iv.length);
+             output = cipher.doFinal(message.getBytes());
+
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (NoSuchProviderException e) {
+            e.printStackTrace();
+        } catch (NoSuchPaddingException e) {
+            e.printStackTrace();
+        } catch (IllegalBlockSizeException e) {
+            e.printStackTrace();
+        } catch (BadPaddingException e) {
+            e.printStackTrace();
+        } catch (InvalidParameterSpecException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        }
+
+        byte[] everything = Arrays.concatenate(iv,output);
+        String toSend =  Base64.encodeToString(everything, Base64.DEFAULT);
+
+        return toSend;
+
+    }
+
 }

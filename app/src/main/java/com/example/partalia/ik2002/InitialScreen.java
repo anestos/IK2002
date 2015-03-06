@@ -13,6 +13,14 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
 import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -21,6 +29,7 @@ import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidParameterSpecException;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,6 +51,10 @@ public class InitialScreen extends Activity {
     private String name;
     private Key key;
     private String serverIp;
+    String serverMessage = "";
+    ServerSocket serverSocket;
+    Thread socketServerThread;
+    private volatile boolean serverRunning = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,8 +69,6 @@ public class InitialScreen extends Activity {
         serverIp = sharedPref.getString("serverIp", "");
         String stringedKey = sharedPref.getString("user_key", "key");
 
-        String ret = "";
-        System.out.println("" + stringedKey + "|" + name);
         if (stringedKey.equals("key") || name.equals("nada")) {
             Intent intent = new Intent(InitialScreen.this, MainActivity.class);
             startActivity(intent);
@@ -68,6 +79,8 @@ public class InitialScreen extends Activity {
         }
 
         // Todo server start
+        socketServerThread = new Thread(new SocketServerThread());
+        socketServerThread.start();
 
 
         btnContact.setOnClickListener(new View.OnClickListener() {
@@ -78,6 +91,12 @@ public class InitialScreen extends Activity {
                 if (txtPeerName.getText().toString().trim().length() > 0 && message.getText().toString().length() > 0) {
 
                     // Todo Server stop
+                   /* serverRunning = false;
+                    try {
+                        socketServerThread.join();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }*/
 
                     String myName = name;
                     String peerName = txtPeerName.getText().toString();
@@ -101,7 +120,6 @@ public class InitialScreen extends Activity {
                         cipher.init(Cipher.ENCRYPT_MODE, key);
                         AlgorithmParameters params = cipher.getParameters();
                         byte[] iv = params.getParameterSpec(IvParameterSpec.class).getIV();
-                        System.out.println("" + iv.length);
 
                         byte[] output = cipher.doFinal(toEncrypt.getBytes());
 
@@ -126,12 +144,19 @@ public class InitialScreen extends Activity {
                             System.out.println("Do handshake");
 
                         }
-
+                        // if handhsake complete
                         //Todo if handshake is completed correctly
+                        SharedPreferences sharedPref = getSharedPreferences("myStorage",Context.MODE_PRIVATE);
+                        SharedPreferences.Editor editor = sharedPref.edit();
+                        editor.putString("sessionKey", kdcReply.getSessionKey());
+                        editor.putString("peerIp", kdcReply.getPeerIp());
+                        editor.putString("peerName", peerName);
+                        editor.putString("initialMessage", message.getText().toString());
+                        editor.commit();
+
                         Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
-                        intent.putExtra("peerName", peerName);
-                        intent.putExtra("message", message.getText().toString());
-                       // startActivity(intent);
+                        startActivity(intent);
+
 
                     } catch (NoSuchAlgorithmException e) {
                         e.printStackTrace();
@@ -193,6 +218,133 @@ public class InitialScreen extends Activity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    // Server Code
+    private class SocketServerThread extends Thread {
+
+        static final int SocketServerPORT = 9002;
+        int count = 0;
+
+        @Override
+        public void run() {
+            if (serverRunning) {
+                try {
+                    serverSocket = new ServerSocket(SocketServerPORT);
+                    InitialScreen.this.runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            System.out.println("I'm waiting here: "
+                                    + serverSocket.getLocalPort());
+                        }
+                    });
+
+                    while (true) {
+                        Socket socket = serverSocket.accept();
+                        count++;
+                        serverMessage += "#" + count + " from " + socket.getInetAddress()
+                                + ":" + socket.getPort() + "\n";
+
+                        InitialScreen.this.runOnUiThread(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                System.out.println(serverMessage);
+                            }
+                        });
+
+                        SocketServerReplyThread socketServerReplyThread = new SocketServerReplyThread(
+                                socket, count);
+                        socketServerReplyThread.run();
+
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    System.out.println("failed to open socket");
+                }
+            }
+        }
+
+    }
+
+    private class SocketServerReplyThread extends Thread {
+
+        private Socket hostThreadSocket;
+        int cnt;
+
+        SocketServerReplyThread(Socket socket, int c) {
+            hostThreadSocket = socket;
+            cnt = c;
+        }
+
+        @Override
+        public void run() {
+            OutputStream outputStream;
+            String msgReply = "Hello from Android, you are #" + cnt;
+
+            try {
+                outputStream = hostThreadSocket.getOutputStream();
+                PrintStream printStream = new PrintStream(outputStream);
+                printStream.print(msgReply);
+                printStream.close();
+
+                serverMessage += "replayed: " + msgReply + "\n";
+
+                InitialScreen.this.runOnUiThread(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        System.out.println(serverMessage);
+                    }
+                });
+
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+                serverMessage += "Something wrong! " + e.toString() + "\n";
+            }
+
+            InitialScreen.this.runOnUiThread(new Runnable() {
+
+                @Override
+                public void run() {
+                    System.out.println(serverMessage);
+                }
+            });
+        }
+
+    }
+
+    private String getIpAddress() {
+        String ip = "";
+        try {
+            Enumeration<NetworkInterface> enumNetworkInterfaces = NetworkInterface
+                    .getNetworkInterfaces();
+            while (enumNetworkInterfaces.hasMoreElements()) {
+                NetworkInterface networkInterface = enumNetworkInterfaces
+                        .nextElement();
+                Enumeration<InetAddress> enumInetAddress = networkInterface
+                        .getInetAddresses();
+                while (enumInetAddress.hasMoreElements()) {
+                    InetAddress inetAddress = enumInetAddress.nextElement();
+
+                    if (inetAddress.isSiteLocalAddress()) {
+                        ip += "SiteLocalAddress: "
+                                + inetAddress.getHostAddress() + "\n";
+                    }
+
+                }
+
+            }
+
+        } catch (SocketException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            ip += "Something Wrong! " + e.toString() + "\n";
+        }
+
+        return ip;
     }
 }
 
