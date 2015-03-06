@@ -46,7 +46,8 @@ gen_session_key() ->
 	Password = generate_password(10),
 	{Salt, Iterations, DerivedLength} = {list_to_binary(generate_password(5)), 4000, 32},
 	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
-	Key.
+	KeyEnc = base64:encode(Key),
+	KeyEnc.
 
 generate_password(N) ->
     lists:map(fun (_) -> random:uniform(90)+$\s+1 end, lists:seq(1,N)).
@@ -138,7 +139,7 @@ construct_ticket(Username, Ip_addr, Session_key, Peer_key) ->
 	[Iv, Cipher].
 
 construct_reply(Nonce, Peer_name, Peer_ip, Peer_session_key, Ticket, Key) ->
-	Clear = [Nonce, Peer_name, Peer_ip, Peer_session_key, Ticket],
+	Clear = [Nonce,"|", Peer_name,"|", Peer_ip,"|", Peer_session_key,"|", Ticket],
 	Clear2 = list_to_binary(Clear),
 	{Iv, Cipher} = encrypt(Clear2, Key),
 	[Iv, Cipher].

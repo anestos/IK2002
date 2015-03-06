@@ -120,10 +120,12 @@ public class InitialScreen extends Activity {
                         Future<String> send = executor.submit(callable);
 
                         KdcReply kdcReply = new KdcReply(send, key);
-                        //if (kdcReply.getNonce().equals(random) && kdcReply.getPeerName().equals(peerName)) {
-                            // Todo Do handshake with peer
 
-                        //}
+                        if (new String(rndEnc).equals(kdcReply.getNonce()) && peerName.equals(kdcReply.getPeerName())) {
+                            // Todo Do handshake with peer
+                            System.out.println("Do handshake");
+
+                        }
 
                         //Todo if handshake is completed correctly
                         Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
