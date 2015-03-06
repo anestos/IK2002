@@ -113,7 +113,7 @@ public class InitialScreen extends Activity {
                         System.out.println("Key: " + new String(keyEnc));
 
                         byte[] encoded = org.bouncycastle.util.encoders.Base64.encode(toSend);
-                        System.out.println("Encoded: " + new String(encoded));
+                        System.out.println("Encoded: " + Arrays.toString(encoded));
 
                         ExecutorService executor = Executors.newFixedThreadPool(1);
                         Callable<String> callable = new Sender(encoded, serverIp , 8080, false);
@@ -129,7 +129,7 @@ public class InitialScreen extends Activity {
                         Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
                         intent.putExtra("peerName", peerName);
                         intent.putExtra("message", message.getText().toString());
-                        startActivity(intent);
+                       // startActivity(intent);
 
                     } catch (NoSuchAlgorithmException e) {
                         e.printStackTrace();

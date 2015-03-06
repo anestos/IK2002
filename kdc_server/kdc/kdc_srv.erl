@@ -135,19 +135,13 @@ handler(Socket) ->
 construct_ticket(Username, Ip_addr, Session_key, Peer_key) ->
 	Clear = [Username, Ip_addr, Session_key],
 	{Iv, Cipher} = encrypt(list_to_binary(Clear), Peer_key),
-	IvEnc = base64:encode(binary_to_list(Iv)),
-	CipherEnc = base64:encode(binary_to_list(Cipher)),
-	[IvEnc, CipherEnc].
+	[Iv, Cipher].
 
 construct_reply(Nonce, Peer_name, Peer_ip, Peer_session_key, Ticket, Key) ->
 	Clear = [Nonce, Peer_name, Peer_ip, Peer_session_key, Ticket],
-	{Iv, Cipher} = encrypt(list_to_binary(Clear), Key),
-	IvB = binary_to_list(Iv),
-	IvEnc = base64:encode(IvB),
-	CipherB = binary_to_list(Cipher),
-	CipherEnc = base64:encode(CipherB),
-	io:format("IV: ~p~n", [IvEnc]),
-	[IvEnc, CipherEnc].
+	Clear2 = list_to_binary(Clear),
+	{Iv, Cipher} = encrypt(Clear2, Key),
+	[Iv, Cipher].
 	
 extract_msg(Msg) ->
 	[User_name | Peer_name] = string:tokens(Msg,"|"),
@@ -171,7 +165,6 @@ encrypt(Data, Key) ->
 	IvEnc = base64:encode(Iv),
 	CipherEnc = base64:encode(Cipher),
 	{IvEnc, CipherEnc}.
-	
 
 % First 8 bytes of payload is the nonce
 get_message(<<Nonce:96/bitstring, Msg/bitstring>>) ->
