@@ -37,12 +37,20 @@ add2list([List], Client) ->
 
 
 gen_key(Username, Ipaddr) ->
-
 	Password = getpass(),
 	{Salt, Iterations, DerivedLength} = {list_to_binary(Ipaddr), 4000, 32},
 	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
 	Key.
 	
+gen_session_key() ->
+	Password = generate_password(10),
+	{Salt, Iterations, DerivedLength} = {generate_password(5), 4000, 32},
+	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
+	Key.
+
+generate_password(N) ->
+    lists:map(fun (_) -> random:uniform(90)+$\s+1 end, lists:seq(1,N)).
+
 getpass() ->
     % Store current options for stdio.
     InitialIOOpts = io:getopts(),
@@ -62,10 +70,16 @@ getpass() ->
             EnteredPassword
     end.
 
-find_client(Address) ->
+find_client_addr(Address) ->
 	Terms = try_read(file:consult(?STORAGE)),
 	Result = lists:keyfind(Address, 3, Terms),
 	io:format("Result: ~p~n", [Result]),
+	Result.
+
+find_client_addr_name(Peer_name) ->
+	Terms = try_read(file:consult(?STORAGE)),
+	Result = lists:keyfind(Peer_name, 2, Terms),
+	io:format("Result name: ~p~n", [Result]),
 	Result.
 	
 handler(Socket) ->
@@ -74,7 +88,7 @@ handler(Socket) ->
 			{ok, {Address, Port}} = inet:peername(Socket),
 		    io:format("Addr: ~p~n", [inet_parse:ntoa(Address)]),
 
-			case find_client(inet_parse:ntoa(Address)) of
+			case find_client_addr(inet_parse:ntoa(Address)) of
 				#clients{user_name=Username,
 					ip_addr=Ip_addr,
 					crypto_key=Key} ->
@@ -87,12 +101,27 @@ handler(Socket) ->
 						Msg1 = binary_to_list(Msg),
 						io:format("Msg: ~p~n", [Msg1]),
 						Nonce1 = binary_to_list(Nonce),
-						io:format("Nonce: ~p~n", [Nonce1]);
-						% check to 1o value tou msg and einai to username tis ip sto store.dat
+						io:format("Nonce: ~p~n", [Nonce1]),
+						% check to 1o value tou msg and 
+						% einai to username tis ip sto store.dat
 						% constract apantisi
-						% nonce, Bob, bobIp, sessionKey, ticket = enctryped(Alice,sessionKey, with: Kb-kdc)
-
-
+						% nonce, Bob, bobIp, sessionKey
+						% ticket = enctryped(Alice,sessionKey, with: Kb-kdc)
+						{User_name, Peer_name} = extract_msg(Msg1),
+						case User_name of
+							Username ->
+								#clients{ip_addr = Peer_ip,
+									crypto_key = Peer_key} = 
+									find_client_addr_name(Peer_name),
+								Peer_session_key = gen_session_key(),
+								Ticket = construct_ticket(Username,
+									Ip_addr, Peer_session_key, Peer_key),
+								Reply = construct_reply(Nonce,
+									Peer_name, Peer_ip, Peer_session_key, Ticket, Key),
+								gen_tcp:send(Socket, Reply);
+							_ -> io:format("User not
+								found~n")
+						end;
 
 
 				[] -> io:format("User not foun!")
@@ -101,6 +130,20 @@ handler(Socket) ->
 			handler(Socket);
 		{error, closed} -> error
 	end.
+
+construct_ticket(Username, Ip_addr, Session_key, Peer_key) ->
+	Clear = [Username, Ip_addr, Session_key],
+	{Iv, Cipher} = encrypt(list_to_binary(Clear), Peer_key),
+	[Iv, Cipher].
+
+construct_reply(Nonce, Peer_name, Peer_ip, Peer_session_key, Ticket, Key) ->
+	Clear = [Nonce, Peer_name, Peer_ip, Peer_session_key, Ticket],
+	{Iv, Cipher} = encrypt(list_to_binary(Clear), Key),
+	[Iv, Cipher].
+	
+extract_msg(Msg) ->
+	[User_name | Peer_name] = string:tokens("|", Msg),
+	{User_name, Peer_name}.
 
 decrypt(EncData, Key) ->
 	% First 16 bytes are the IV
@@ -113,6 +156,13 @@ decrypt(EncData, Key) ->
 	Cipher_size = Data_size - 128,
 	<<Iv:128/bitstring, Cipher:Cipher_size/bitstring>> = Data,
 	crypto:aes_ctr_decrypt(Key, Iv, Cipher).
+
+encrypt(Data, Key) ->
+	Iv = crypto:rand_bytes(16),
+	Cipher = crypto:aes_ctr_encrypt(Key, Iv, Data),
+	IvEnc = base64:encode(Iv),
+	CipherEnc = base64:encode(Cipher),
+	{IvEnc, CipherEnc}.
 	
 
 % First 8 bytes of payload is the nonce
@@ -120,7 +170,7 @@ get_message(<<Nonce:96/bitstring, Msg/bitstring>>) ->
 	{Nonce, Msg}.
 
 tester(Address) ->
-	#clients{user_name=Un, ip_addr=Ip, crypto_key=C} = find_client(Address),
+	#clients{user_name=Un, ip_addr=Ip, crypto_key=C} = find_client_addr(Address),
 	io:format("Username: ~p~n", [Un]),
 	io:format("IP: ~p~n", [Ip]),
 	io:format("Key: ~p~n", [C]),
