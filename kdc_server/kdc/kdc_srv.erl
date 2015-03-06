@@ -38,7 +38,8 @@ add2list([List], Client) ->
 
 gen_key(Username, Ipaddr) ->
 	Password = getpass(),
-	{Salt, Iterations, DerivedLength} = {list_to_binary(Ipaddr), 4000, 32},
+	%{Salt, Iterations, DerivedLength} = {list_to_binary(Ipaddr), 4000, 32},
+	{Salt, Iterations, DerivedLength} = {list_to_binary("0.0.0.0"), 4000, 32},
 	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
 	Key.
 	
