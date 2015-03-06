@@ -37,9 +37,9 @@ add2list([List], Client) ->
 
 
 gen_key(Username, Ipaddr) ->
+
 	Password = getpass(),
-	%{Salt, Iterations, DerivedLength} = {list_to_binary(Ipaddr), 4000, 32},
-	{Salt, Iterations, DerivedLength} = {list_to_binary("0.0.0.0"), 4000, 32},
+	{Salt, Iterations, DerivedLength} = {list_to_binary(Ipaddr), 4000, 32},
 	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
 	Key.
 	
@@ -72,6 +72,8 @@ handler(Socket) ->
 	case gen_tcp:recv(Socket, 0) of
 		{ok, Data} ->
 			{ok, {Address, Port}} = inet:peername(Socket),
+		    io:format("Addr: ~p~n", [inet_parse:ntoa(Address)]),
+
 			case find_client(inet_parse:ntoa(Address)) of
 				#clients{user_name=Username,
 					ip_addr=Ip_addr,
@@ -86,6 +88,13 @@ handler(Socket) ->
 						io:format("Msg: ~p~n", [Msg1]),
 						Nonce1 = binary_to_list(Nonce),
 						io:format("Nonce: ~p~n", [Nonce1]);
+						% check to 1o value tou msg and einai to username tis ip sto store.dat
+						% constract apantisi
+						% nonce, Bob, bobIp, sessionKey, ticket = enctryped(Alice,sessionKey, with: Kb-kdc)
+
+
+
+
 				[] -> io:format("User not foun!")
 			end,
 			gen_tcp:close(Socket),
@@ -107,7 +116,7 @@ decrypt(EncData, Key) ->
 	
 
 % First 8 bytes of payload is the nonce
-get_message(<<Nonce:64/bitstring, Msg/bitstring>>) ->
+get_message(<<Nonce:96/bitstring, Msg/bitstring>>) ->
 	{Nonce, Msg}.
 
 tester(Address) ->

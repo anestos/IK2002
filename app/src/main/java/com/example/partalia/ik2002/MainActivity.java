@@ -61,10 +61,11 @@ public class MainActivity extends Activity {
 
                     WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
                     String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
-                    //System.out.println("ip: "+ ip);
+                    ip = "127.0.0.1";
 
+                    System.out.println("ip: "+ ip);
                     byte[] salt = ip.getBytes();
-                    //System.out.println("salt: "+salt.length + " " + Arrays.toString(salt));
+                    System.out.println("salt: "+salt.length + " " + Arrays.toString(salt));
 
 
                     try {
@@ -78,7 +79,7 @@ public class MainActivity extends Activity {
                         SharedPreferences.Editor editor = sharedPref.edit();
                         editor.putString("user_name", name);
                         editor.putString("user_key", stringedKey);
-                        //System.out.println("key:" +stringedKey);
+                        System.out.println("key:" +stringedKey);
                         editor.commit();
 
                     } catch (Exception e) {

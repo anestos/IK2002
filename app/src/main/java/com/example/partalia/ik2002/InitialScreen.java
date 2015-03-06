@@ -92,7 +92,8 @@ public class InitialScreen extends Activity {
 
                     byte[] rndEnc = org.bouncycastle.util.encoders.Base64.encode(random);
                     System.out.println("Nonce: " + new String(rndEnc));
-                    toEncrypt = new String(rndEnc) + "|" + myName + "|" + peerName;
+                    System.out.println("Nonce length:"+ rndEnc.length);
+                    toEncrypt = new String(rndEnc) + myName + "|" + peerName;
 
                     try {
 
