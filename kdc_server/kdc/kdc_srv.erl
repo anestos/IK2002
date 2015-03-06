@@ -43,6 +43,8 @@ gen_key(Username, Ipaddr) ->
 	Key.
 	
 gen_session_key() ->
+    %{A,B,C} = now();
+    %random:seed(A,B,C),
 	Password = generate_password(10),
 	{Salt, Iterations, DerivedLength} = {list_to_binary(generate_password(5)), 4000, 32},
 	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),

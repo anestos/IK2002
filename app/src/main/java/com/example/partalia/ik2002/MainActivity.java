@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
                     String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
 
                     //Todo remove after local testing
-                    ip = "127.0.0.1";
+                    //ip = "127.0.0.1";
 
                     System.out.println("ip: "+ ip);
                     byte[] salt = ip.getBytes();
