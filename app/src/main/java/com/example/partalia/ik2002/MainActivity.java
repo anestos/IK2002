@@ -2,9 +2,11 @@ package com.example.partalia.ik2002;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.app.Activity;
 import android.content.Intent;
+import android.text.format.Formatter;
 import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
@@ -56,10 +58,13 @@ public class MainActivity extends Activity {
                     String password = txtPassword.getText().toString();
 
                     Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-                    String ip = getIPAddress();
+
+                    WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
+                    String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
+                    //System.out.println("ip: "+ ip);
 
                     byte[] salt = ip.getBytes();
-
+                    //System.out.println("salt: "+salt.length + " " + Arrays.toString(salt));
 
 
                     try {
@@ -73,6 +78,7 @@ public class MainActivity extends Activity {
                         SharedPreferences.Editor editor = sharedPref.edit();
                         editor.putString("user_name", name);
                         editor.putString("user_key", stringedKey);
+                        //System.out.println("key:" +stringedKey);
                         editor.commit();
 
                     } catch (Exception e) {
@@ -91,19 +97,5 @@ public class MainActivity extends Activity {
                 }
             }
         });
-    }
-    public static String getIPAddress() {
-        try {
-            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-            for (NetworkInterface intf : interfaces) {
-                List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
-                for (InetAddress addr : addrs) {
-                    if (!addr.isLoopbackAddress()) {
-                        return addr.getHostAddress().toUpperCase();
-                    }
-                }
-            }
-        } catch (Exception ex) { } // for now eat exceptions
-        return "";
     }
 }
