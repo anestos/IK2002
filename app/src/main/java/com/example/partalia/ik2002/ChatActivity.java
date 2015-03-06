@@ -77,8 +77,8 @@ public class ChatActivity extends Activity {
 
         SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
         name = sharedPref.getString("user_name", "nada");
-        peerName = sharedPref.getString("peerIp", "empty");
-        peerIp = sharedPref.getString("peerName", "empty");
+        peerName = sharedPref.getString("peerName", "empty");
+        peerIp = sharedPref.getString("peerIp", "empty");
         initialMesssage = sharedPref.getString("initialMessage", "empty");
 
         listMessages = new ArrayList<Message>();
@@ -242,7 +242,7 @@ public class ChatActivity extends Activity {
                 pw = new PrintWriter(cSocket.getOutputStream(), true);
                 in = new BufferedReader(new InputStreamReader(cSocket.getInputStream()));
                 while (running) {
-
+                    pw.flush();
                     buffer = in.readLine();
 
                     // Todo decrypt to buffer kai constract Message add sti lista
@@ -295,9 +295,11 @@ public class ChatActivity extends Activity {
                 input = new BufferedReader(inputStream);
 
                 out.writeUTF(msg);
+                out.flush();
 
-                while (running && serverAddr.isReachable(1000)) {
-
+                //&& serverAddr.isReachable(1000)
+                while (running ) {
+                    out.flush();
                     buffer = input.readLine();
                     decrypt_and_show(buffer);
 
@@ -320,6 +322,9 @@ public class ChatActivity extends Activity {
 
         SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
         String stringedKey = sharedPref.getString("sessionKey", "key");
+
+
+
         byte[] decodedKey = Base64.decode(stringedKey.getBytes(), Base64.DEFAULT);
         SecretKey keytmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
         Key myKey = new SecretKeySpec(keytmp.getEncoded(), "AES");
@@ -361,6 +366,9 @@ return true;
         Cipher cipher;
         SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
         String stringedKey = sharedPref.getString("sessionKey", "key");
+
+
+
         byte[] decodedKey = Base64.decode(stringedKey.getBytes(), Base64.DEFAULT);
         SecretKey keytmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
         Key myKey = new SecretKeySpec(keytmp.getEncoded(), "AES");
