@@ -1,11 +1,14 @@
 -module(tcp_srv).
--export([start_srv/2, stop_srv/1]).
+-export([start_srv/0, start_srv/2, stop_srv/1]).
 %Only for tests
 %%-export([handler/1]).
 
 -define(MAX_INSTANCES, 20).
 -define(PACKET_SIZE_LENGTH, 4).
 -define(PACKET_FORMAT, binary).
+
+start_srv() ->
+	start_srv(8080, fun(Socket) -> kdc_srv:handler(Socket) end).
 
 % Name to register process
 -spec srv_register_name(Port) -> ServerName when
