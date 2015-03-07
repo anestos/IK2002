@@ -20,9 +20,11 @@ import android.widget.Toast;
 import org.bouncycastle.util.Arrays;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -113,17 +115,12 @@ public class ChatActivity extends Activity {
                 Message m = new Message(name, inputMsg.getText().toString(), true);
                 appendMessage(m);
                 if (initialMesssage.equals("empty")) {
-                    PrintWriter writer = socketServerThread.getPw();
                     String encrypted = encrypt_message(m.getMessage());
-                    writer.println(encrypted);
+                    socketServerThread.sendMessage(encrypted);
                 } else {
-                    DataOutputStream writer = socketClientThread.getInput();
+
                     String encrypted = encrypt_message(m.getMessage());
-                    try {
-                        writer.writeUTF(encrypted);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    socketClientThread.sendMessage(encrypted);
                 }
                 // Clearing the input filed once message was sent
                 inputMsg.setText("");
@@ -230,6 +227,10 @@ public class ChatActivity extends Activity {
         public PrintWriter getPw() {
             return pw;
         }
+        public void sendMessage(String s){
+            pw.println(s);
+            pw.flush();
+        }
         public void killIt(){
             running = false;
         }
@@ -240,9 +241,9 @@ public class ChatActivity extends Activity {
                 sSocket = new ServerSocket(9001);
                 cSocket = sSocket.accept();
                 pw = new PrintWriter(cSocket.getOutputStream(), true);
-                in = new BufferedReader(new InputStreamReader(cSocket.getInputStream()));
                 while (running) {
-                    pw.flush();
+                    in = new BufferedReader(new InputStreamReader(cSocket.getInputStream()));
+
                     buffer = in.readLine();
 
                     // Todo decrypt to buffer kai constract Message add sti lista
@@ -276,9 +277,13 @@ public class ChatActivity extends Activity {
 
         }
 
-
         public DataOutputStream getInput() {
             return out;
+        }
+
+        public void sendMessage( String s) {
+                pw.println(s);
+                pw.flush();
         }
         public void killIt(){
             running = false;
@@ -290,16 +295,17 @@ public class ChatActivity extends Activity {
                 InetAddress serverAddr =InetAddress.getByName(peerIp);
                 cSocket = new Socket(peerIp, 9001);
                 out = new DataOutputStream(cSocket.getOutputStream());
+                pw = new PrintWriter(new BufferedWriter(new OutputStreamWriter(cSocket.getOutputStream())), true);
 
-                InputStreamReader inputStream = new InputStreamReader(cSocket.getInputStream());
-                input = new BufferedReader(inputStream);
 
-                out.writeUTF(msg);
-                out.flush();
+
+                sendMessage(msg);
 
                 //&& serverAddr.isReachable(1000)
                 while (running ) {
-                    out.flush();
+                    InputStreamReader inputStream = new InputStreamReader(cSocket.getInputStream());
+                    input = new BufferedReader(inputStream);
+
                     buffer = input.readLine();
                     decrypt_and_show(buffer);
 
