@@ -41,8 +41,7 @@
         android:layout_marginBottom="10dp"
         android:layout_marginTop="10dp"
         android:background="@color/white"
-        android:padding="10dp"
-        android:text="antonis"/>
+        android:padding="10dp" />
 
 
     <TextView
@@ -63,8 +62,7 @@
         android:background="@color/white"
         android:inputType="textMultiLine"
         android:lines="5"
-        android:padding="10dp"
-        android:text="message"/>
+        android:padding="10dp" />
 
     <Button
         android:id="@+id/btn_contact"

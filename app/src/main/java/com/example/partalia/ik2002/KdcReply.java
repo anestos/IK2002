@@ -28,8 +28,6 @@ public class KdcReply {
 
 
     public KdcReply(Future<String> send, Key key) {
-        //Todo Decrypt send with key and save values
-
         try {
             String received = send.get();
             msg = new byte[received.getBytes().length];

@@ -88,7 +88,7 @@
             android:layout_marginTop="10dp"
             android:background="@color/white"
             android:padding="10dp"
-            android:text="10.0.2.2"/>
+            android:text="192.168.1.66"/>
 
         <Button
             android:id="@+id/btnJoin"

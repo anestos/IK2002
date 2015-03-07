@@ -13,9 +13,12 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
@@ -31,6 +34,7 @@ import java.security.spec.InvalidParameterSpecException;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -51,10 +55,8 @@ public class InitialScreen extends Activity {
     private String name;
     private Key key;
     private String serverIp;
-    String serverMessage = "";
-    ServerSocket serverSocket;
-    Thread socketServerThread;
-    private volatile boolean serverRunning = true;
+    private ExecutorService ex;
+    ServerReceiver socketServerThread;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,9 +80,10 @@ public class InitialScreen extends Activity {
             key = new SecretKeySpec(keytmp.getEncoded(), "AES");
         }
 
-        // Todo server start
-        socketServerThread = new Thread(new SocketServerThread());
-        socketServerThread.start();
+        // server starting
+        ex = Executors.newFixedThreadPool(10);
+        socketServerThread = new ServerReceiver();
+        ex.submit(socketServerThread);
 
 
         btnContact.setOnClickListener(new View.OnClickListener() {
@@ -90,18 +93,13 @@ public class InitialScreen extends Activity {
 
                 if (txtPeerName.getText().toString().trim().length() > 0 && message.getText().toString().length() > 0) {
 
-                    // Todo Server stop
-                   /* serverRunning = false;
-                    try {
-                        socketServerThread.join();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }*/
+                    // Todo (check) Server stop
+                    socketServerThread.killIt();
 
                     String myName = name;
                     String peerName = txtPeerName.getText().toString();
 
-                    Toast.makeText(getApplicationContext(), "Please wait, contacting "+peerName, Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(), "Please wait, contacting " + peerName, Toast.LENGTH_LONG).show();
 
                     String toEncrypt = "";
                     byte[] toSend;
@@ -111,7 +109,7 @@ public class InitialScreen extends Activity {
 
                     byte[] rndEnc = org.bouncycastle.util.encoders.Base64.encode(random);
                     System.out.println("Nonce: " + new String(rndEnc));
-                    System.out.println("Nonce length:"+ rndEnc.length);
+                    System.out.println("Nonce length:" + rndEnc.length);
                     toEncrypt = new String(rndEnc) + myName + "|" + peerName;
 
                     try {
@@ -133,44 +131,46 @@ public class InitialScreen extends Activity {
                         byte[] encoded = org.bouncycastle.util.encoders.Base64.encode(toSend);
                         System.out.println("Encoded: " + Arrays.toString(encoded));
 
-                        ExecutorService executor = Executors.newFixedThreadPool(1);
-                        Callable<String> callable = new Sender(encoded, serverIp , 8080, false);
+                        ExecutorService executor = Executors.newFixedThreadPool(5);
+                        Callable<String> callable = new Sender(encoded, serverIp, 8080);
                         Future<String> send = executor.submit(callable);
 
                         KdcReply kdcReply = new KdcReply(send, key);
 
                         if (new String(rndEnc).equals(kdcReply.getNonce()) && peerName.equals(kdcReply.getPeerName())) {
-                            // Todo Do handshake with peer
-                            System.out.println("Do handshake");
+
+                            // handshake (mutual authentication) with peer
+
+                            Callable<Boolean> callableAuthenticator = new Authenticator(kdcReply.getPeerIp(), 9000, kdcReply.getTicket(), kdcReply.getSessionKey());
+                            Future<Boolean> authenticated = executor.submit(callableAuthenticator);
+
+
+                            try {
+                                if (authenticated.get()) {
+                                    SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
+                                    SharedPreferences.Editor editor = sharedPref.edit();
+                                    editor.putString("sessionKey", kdcReply.getSessionKey());
+                                    editor.putString("peerIp", kdcReply.getPeerIp());
+                                    editor.putString("peerName", peerName);
+                                    editor.putString("initialMessage", message.getText().toString());
+                                    editor.commit();
+
+                                    Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
+                                    startActivity(intent);
+                                } else {
+                                    Toast.makeText(getApplicationContext(),
+                                            "Cannot connect to " + kdcReply.getPeerName(), Toast.LENGTH_LONG).show();
+
+                                }
+
+
+                            } catch (InterruptedException | ExecutionException e) {
+                                e.printStackTrace();
+                            }
 
                         }
-                        // if handhsake complete
-                        //Todo if handshake is completed correctly
-                        SharedPreferences sharedPref = getSharedPreferences("myStorage",Context.MODE_PRIVATE);
-                        SharedPreferences.Editor editor = sharedPref.edit();
-                        editor.putString("sessionKey", kdcReply.getSessionKey());
-                        editor.putString("peerIp", kdcReply.getPeerIp());
-                        editor.putString("peerName", peerName);
-                        editor.putString("initialMessage", message.getText().toString());
-                        editor.commit();
 
-                        Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
-                        startActivity(intent);
-
-
-                    } catch (NoSuchAlgorithmException e) {
-                        e.printStackTrace();
-                    } catch (NoSuchProviderException e) {
-                        e.printStackTrace();
-                    } catch (NoSuchPaddingException e) {
-                        e.printStackTrace();
-                    } catch (InvalidKeyException e) {
-                        e.printStackTrace();
-                    } catch (InvalidParameterSpecException e) {
-                        e.printStackTrace();
-                    } catch (BadPaddingException e) {
-                        e.printStackTrace();
-                    } catch (IllegalBlockSizeException e) {
+                    } catch (NoSuchAlgorithmException | NoSuchProviderException | NoSuchPaddingException | InvalidKeyException | InvalidParameterSpecException | BadPaddingException | IllegalBlockSizeException e) {
                         e.printStackTrace();
                     }
 
@@ -182,7 +182,6 @@ public class InitialScreen extends Activity {
             }
 
         });
-
 
 
     }
@@ -221,131 +220,66 @@ public class InitialScreen extends Activity {
     }
 
     // Server Code
-    private class SocketServerThread extends Thread {
+    private class ServerReceiver implements Runnable {
+        private ServerSocket sSocket;
+        private Socket cSocket;
+        private BufferedReader in;
+        private PrintWriter pw;
+        private String buffer;
+        private boolean running = true;
 
-        static final int SocketServerPORT = 9002;
-        int count = 0;
-
-        @Override
-        public void run() {
-            if (serverRunning) {
-                try {
-                    serverSocket = new ServerSocket(SocketServerPORT);
-                    InitialScreen.this.runOnUiThread(new Runnable() {
-
-                        @Override
-                        public void run() {
-                            System.out.println("I'm waiting here: "
-                                    + serverSocket.getLocalPort());
-                        }
-                    });
-
-                    while (true) {
-                        Socket socket = serverSocket.accept();
-                        count++;
-                        serverMessage += "#" + count + " from " + socket.getInetAddress()
-                                + ":" + socket.getPort() + "\n";
-
-                        InitialScreen.this.runOnUiThread(new Runnable() {
-
-                            @Override
-                            public void run() {
-                                System.out.println(serverMessage);
-                            }
-                        });
-
-                        SocketServerReplyThread socketServerReplyThread = new SocketServerReplyThread(
-                                socket, count);
-                        socketServerReplyThread.run();
-
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    System.out.println("failed to open socket");
-                }
-            }
+        public void sendMessage(String s) {
+            pw.println(s);
+            pw.flush();
         }
 
-    }
-
-    private class SocketServerReplyThread extends Thread {
-
-        private Socket hostThreadSocket;
-        int cnt;
-
-        SocketServerReplyThread(Socket socket, int c) {
-            hostThreadSocket = socket;
-            cnt = c;
-        }
-
-        @Override
-        public void run() {
-            OutputStream outputStream;
-            String msgReply = "Hello from Android, you are #" + cnt;
-
+        public void killIt() {
             try {
-                outputStream = hostThreadSocket.getOutputStream();
-                PrintStream printStream = new PrintStream(outputStream);
-                printStream.print(msgReply);
-                printStream.close();
-
-                serverMessage += "replayed: " + msgReply + "\n";
-
-                InitialScreen.this.runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        System.out.println(serverMessage);
-                    }
-                });
-
+                pw.close();
+                in.close();
+                cSocket.close();
+                sSocket.close();
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
-                serverMessage += "Something wrong! " + e.toString() + "\n";
             }
 
-            InitialScreen.this.runOnUiThread(new Runnable() {
-
-                @Override
-                public void run() {
-                    System.out.println(serverMessage);
-                }
-            });
+            running = false;
         }
 
-    }
+        @Override
+        public void run() {
+            try {
+                sSocket = new ServerSocket(9000);
+                cSocket = sSocket.accept();
+                pw = new PrintWriter(cSocket.getOutputStream(), true);
+                while (running) {
+                    in = new BufferedReader(new InputStreamReader(cSocket.getInputStream()));
+                    buffer = in.readLine();
 
-    private String getIpAddress() {
-        String ip = "";
-        try {
-            Enumeration<NetworkInterface> enumNetworkInterfaces = NetworkInterface
-                    .getNetworkInterfaces();
-            while (enumNetworkInterfaces.hasMoreElements()) {
-                NetworkInterface networkInterface = enumNetworkInterfaces
-                        .nextElement();
-                Enumeration<InetAddress> enumInetAddress = networkInterface
-                        .getInetAddresses();
-                while (enumInetAddress.hasMoreElements()) {
-                    InetAddress inetAddress = enumInetAddress.nextElement();
-
-                    if (inetAddress.isSiteLocalAddress()) {
-                        ip += "SiteLocalAddress: "
-                                + inetAddress.getHostAddress() + "\n";
+                    // Todo handle messages
+                    serverHandleIncomingRequest(buffer);
+                    if (buffer.equals("exit")) {
+                        running = false;
+                        pw.close();
+                        in.close();
                     }
-
                 }
-
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
-
-        } catch (SocketException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-            ip += "Something Wrong! " + e.toString() + "\n";
         }
-
-        return ip;
     }
+
+
+    private void serverHandleIncomingRequest(String msg){
+
+        //Todo msg = ticket+|+encrypted(nonce)
+        // verify ticket decrypt nonce and reply with encrypted(nonce+nonce)
+
+
+
+    }
+
 }
 
 
