@@ -1,4 +1,4 @@
-package com.example.partalia.ik2002;
+package com.ik2002.project.ik2002;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
+
 
 import java.util.List;
 

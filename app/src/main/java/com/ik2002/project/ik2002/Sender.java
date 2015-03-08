@@ -1,4 +1,4 @@
-package com.example.partalia.ik2002;
+package com.ik2002.project.ik2002;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;

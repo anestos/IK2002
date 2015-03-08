@@ -16,5 +16,13 @@
     <string name="action_delete_key">Delete Key</string>
     <string name="title_activity_chat">Conversation</string>
     <string name="title_activity_initial_screen">Create Private Key</string>
+    <string name="title_activity_information">Information</string>
+    <string name="title_information_page">Academic assignment</string>
+    <string name="course_id">IK2002</string>
+    <string name="authors">Authors:</string>
+    <string name="author1">Antonios Kouzoupis antkou@kth.se</string>
+    <string name="author2">Nikolaos - Ektoras Anestos anestos@kth.se</string>
+    <string name="month">March 2015</string>
+
 </resources>
 

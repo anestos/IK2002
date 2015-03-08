@@ -1,7 +1,9 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:context="com.example.partalia.ik2002.InitialScreen">
+    tools:context="com.ik2002.project.ik2002.InitialScreen">
     <item android:id="@+id/action_delete_key" android:title="@string/action_delete_key"
+        android:orderInCategory="100" app:showAsAction="never" />
+    <item android:id="@+id/action_information" android:title="@string/title_activity_information"
         android:orderInCategory="100" app:showAsAction="never" />
 </menu>
