@@ -79,9 +79,8 @@ public class MainActivity extends Activity {
                         e.printStackTrace();
                     }
 
-
-                    Intent intent = new Intent(MainActivity.this,
-                            InitialScreen.class);
+                    Killer.getInstance().setRunning(true);
+                    Intent intent = new Intent(MainActivity.this,InitialScreen.class);
 
                     startActivity(intent);
 

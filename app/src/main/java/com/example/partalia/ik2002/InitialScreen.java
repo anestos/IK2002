@@ -70,8 +70,8 @@ public class InitialScreen extends Activity {
             startActivity(intent);
         } else {
             byte[] decodedKey = Base64.decode(stringedKey.getBytes(), Base64.DEFAULT);
-            SecretKey keytmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
-            key = new SecretKeySpec(keytmp.getEncoded(), "AES");
+            SecretKey keyTmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
+            key = new SecretKeySpec(keyTmp.getEncoded(), "AES");
 
 
             ex = Executors.newFixedThreadPool(2);
@@ -87,7 +87,7 @@ public class InitialScreen extends Activity {
                 if (txtPeerName.getText().toString().trim().length() > 0 && message.getText().toString().length() > 0) {
 
 
-                    Killer.getInstance().setRunning(false);
+
 
                     String myName = name;
                     String peerName = txtPeerName.getText().toString();
@@ -139,12 +139,14 @@ public class InitialScreen extends Activity {
                                     editor.putString("peerName", peerName);
                                     editor.putString("initialMessage", message.getText().toString());
                                     editor.commit();
+                                    Killer.getInstance().setRunning(false);
 
                                     Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
                                     startActivity(intent);
                                 } else {
                                     Toast.makeText(getApplicationContext(),
                                             "Cannot connect to " + kdcReply.getPeerName(), Toast.LENGTH_LONG).show();
+
 
                                 }
 

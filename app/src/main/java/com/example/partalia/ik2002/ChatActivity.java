@@ -48,6 +48,7 @@ public class ChatActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+        Killer.getInstance().setChatting(true);
 
         Button btnSend = (Button) findViewById(R.id.btnSend);
         inputMsg = (EditText) findViewById(R.id.inputMsg);
@@ -129,6 +130,7 @@ public class ChatActivity extends Activity {
             }
 
             Killer.getInstance().setChatting(false);
+            Killer.getInstance().setRunning(true);
 
             editor.putString("sessionKey", "empty");
             editor.putString("peerIP", "empty");
@@ -142,6 +144,7 @@ public class ChatActivity extends Activity {
         if (id == R.id.action_delete_key) {
             // close session
             Killer.getInstance().setChatting(false);
+            Killer.getInstance().setRunning(true);
             if (initialMesssage.equals("empty")) {
                 socketServerThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
             } else {
