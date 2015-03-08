@@ -106,11 +106,6 @@ handler(Socket) ->
 						io:format("Msg: ~p~n", [Msg1]),
 						Nonce1 = binary_to_list(Nonce),
 						io:format("Nonce: ~p~n", [Nonce1]),
-						% check to 1o value tou msg and 
-						% einai to username tis ip sto store.dat
-						% constract apantisi
-						% nonce, Bob, bobIp, sessionKey
-						% ticket = enctryped(Alice,sessionKey, with: Kb-kdc)
 						{User_name, Peer_name} = extract_msg(Msg1),
 						case User_name of
 							Username ->

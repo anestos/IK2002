@@ -105,7 +105,7 @@ public class CryptoUtil {
         return "Cannot Decrypt message";
     }
 
-    public static String create_nonce(){
+    public static String create_nonce() {
         byte[] random = new byte[8];
         SecureRandom rd = new SecureRandom();
         rd.nextBytes(random);

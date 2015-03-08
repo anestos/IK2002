@@ -22,7 +22,6 @@ public class KdcReply {
     private String peerIp;
     private String ticket;
     private String sessionKey;
-    private byte[] iv;
 
 
     public KdcReply(Future<String> send, Key key) {
@@ -31,8 +30,7 @@ public class KdcReply {
             byte[] msg = received.getBytes();
             byte[] encrypted = Arrays.copyOfRange(msg, 28, received.getBytes().length);
 
-            iv = new byte[16];
-            iv = Arrays.copyOfRange(msg, 4 , 28);
+            byte[] iv = Arrays.copyOfRange(msg, 4, 28);
 
             byte[] ivDec = org.bouncycastle.util.encoders.Base64.decode(iv);
             byte[] encryptedDec = org.bouncycastle.util.encoders.Base64.decode(encrypted);
@@ -51,23 +49,7 @@ public class KdcReply {
             this.sessionKey = decryptedArray[3];
             this.ticket = decryptedArray[4];
 
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        } catch (NoSuchPaddingException e) {
-            e.printStackTrace();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (InvalidKeyException e) {
-            e.printStackTrace();
-        } catch (NoSuchProviderException e) {
-            e.printStackTrace();
-        } catch (InvalidAlgorithmParameterException e) {
-            e.printStackTrace();
-        } catch (BadPaddingException e) {
-            e.printStackTrace();
-        } catch (IllegalBlockSizeException e) {
+        } catch (InterruptedException | ExecutionException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | NoSuchProviderException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
             e.printStackTrace();
         }
     }

@@ -15,6 +15,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
@@ -28,9 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
-
 public class ChatActivity extends Activity {
-    private Button btnSend;
     private EditText inputMsg;
 
     private MessagesListAdapter adapter;
@@ -40,9 +39,7 @@ public class ChatActivity extends Activity {
     private String peerName;
     ServerReceiver socketServerThread;
     ClientReceiver socketClientThread;
-    private ExecutorService ex;
     private String peerIp;
-    private String initialMessageToSend;
     private String initialMesssage;
     private String stringedKey;
 
@@ -52,7 +49,7 @@ public class ChatActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        btnSend = (Button) findViewById(R.id.btnSend);
+        Button btnSend = (Button) findViewById(R.id.btnSend);
         inputMsg = (EditText) findViewById(R.id.inputMsg);
         listViewMessages = (ListView) findViewById(R.id.list_view_messages);
 
@@ -68,13 +65,13 @@ public class ChatActivity extends Activity {
         adapter = new MessagesListAdapter(this, listMessages);
         listViewMessages.setAdapter(adapter);
 
-        ex = Executors.newFixedThreadPool(10);
+        ExecutorService ex = Executors.newFixedThreadPool(10);
 
         if (initialMesssage.equals("empty")) {
             socketServerThread = new ServerReceiver();
             ex.submit(socketServerThread);
         } else {
-            initialMessageToSend = CryptoUtil.encrypt(initialMesssage, stringedKey);
+            String initialMessageToSend = CryptoUtil.encrypt(initialMesssage, stringedKey);
             socketClientThread = new ClientReceiver(initialMessageToSend);
             ex.submit(socketClientThread);
             Message im = new Message(name, initialMesssage, true);
@@ -124,12 +121,15 @@ public class ChatActivity extends Activity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_close_conversation) {
-            //Todo (check this) close session
+            // close session
             if (initialMesssage.equals("empty")) {
-                socketServerThread.killIt();
+                socketServerThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
             } else {
-                socketClientThread.killIt();
+                socketClientThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
             }
+
+            Killer.getInstance().setChatting(false);
+
             editor.putString("sessionKey", "empty");
             editor.putString("peerIP", "empty");
             editor.putString("initialMessage", "empty");
@@ -140,12 +140,14 @@ public class ChatActivity extends Activity {
 
         }
         if (id == R.id.action_delete_key) {
-            //Todo (check this) close session
+            // close session
+            Killer.getInstance().setChatting(false);
             if (initialMesssage.equals("empty")) {
-                socketServerThread.killIt();
+                socketServerThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
             } else {
-                socketClientThread.killIt();
+                socketClientThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
             }
+
             editor.putString("sessionKey", "empty");
             editor.putString("peerIP", "empty");
             editor.putString("initialMessage", "empty");
@@ -210,16 +212,12 @@ public class ChatActivity extends Activity {
         private BufferedReader in;
         private PrintWriter pw;
         private String buffer;
-        private boolean running = true;
 
         public void sendMessage(String s) {
             pw.println(s);
             pw.flush();
         }
 
-        public void killIt() {
-            running = false;
-        }
 
         @Override
         public void run() {
@@ -227,7 +225,7 @@ public class ChatActivity extends Activity {
                 sSocket = new ServerSocket(9001);
                 cSocket = sSocket.accept();
                 pw = new PrintWriter(cSocket.getOutputStream(), true);
-                while (running) {
+                while (Killer.getInstance().getChatting()) {
                     in = new BufferedReader(new InputStreamReader(cSocket.getInputStream()));
 
                     buffer = in.readLine();
@@ -250,7 +248,6 @@ public class ChatActivity extends Activity {
         private Socket cSocket;
         private PrintWriter pw;
         private String buffer;
-        private boolean running = true;
         private String msg;
         private BufferedReader input;
 
@@ -264,9 +261,6 @@ public class ChatActivity extends Activity {
             pw.flush();
         }
 
-        public void killIt() {
-            running = false;
-        }
 
         @Override
         public void run() {
@@ -276,7 +270,7 @@ public class ChatActivity extends Activity {
 
                 sendMessage(msg);
 
-                while (running) {
+                while (Killer.getInstance().getChatting()) {
                     InputStreamReader inputStream = new InputStreamReader(cSocket.getInputStream());
                     input = new BufferedReader(inputStream);
 
@@ -293,10 +287,16 @@ public class ChatActivity extends Activity {
     }
 
     private void decrypt_and_show(String buffer, String sessionKey) {
-            Message msg = new Message(peerName, CryptoUtil.decrypt(buffer, sessionKey), false);
+        // if msg=exit, close connection
+        String decrypted = CryptoUtil.decrypt(buffer, sessionKey);
+        if (decrypted.equals("exit")) {
+            Killer.getInstance().setChatting(false);
+            showToast("Connection lost");
+        } else {
+            Message msg = new Message(peerName, decrypted, false);
             appendMessage(msg);
+        }
     }
-
 
 
 }

@@ -10,8 +10,6 @@ public class Sender implements Callable<String> {
     private byte[] msg;
     private String ip;
     private int port;
-    private Socket socket;
-    private DataOutputStream out;
 
     public Sender(byte[] msg, String ip, int port) {
         this.msg = msg;
@@ -22,11 +20,10 @@ public class Sender implements Callable<String> {
     @Override
     public String call() {
         try {
-            socket = new Socket(ip, port);
-            out = new DataOutputStream(socket.getOutputStream());
+            Socket socket = new Socket(ip, port);
+            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
 
             InputStreamReader inputStream = new InputStreamReader(socket.getInputStream());
-            BufferedReader input = new BufferedReader(inputStream);
 
             byte[] request = msg;
             out.writeInt(request.length);
