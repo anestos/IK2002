@@ -60,9 +60,7 @@ public class MainActivity extends Activity {
                     //Todo remove after local testing
                     //ip = "127.0.0.1";
 
-                    System.out.println("ip: "+ ip);
                     byte[] salt = ip.getBytes();
-                    System.out.println("salt: "+salt.length + " " + Arrays.toString(salt));
 
 
                     try {
@@ -77,7 +75,7 @@ public class MainActivity extends Activity {
                         editor.putString("user_name", name);
                         editor.putString("serverIp", serverIp);
                         editor.putString("user_key", stringedKey);
-                        System.out.println("key:" +stringedKey);
+
                         editor.commit();
 
                     } catch (Exception e) {

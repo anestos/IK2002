@@ -11,19 +11,13 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
-
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -32,13 +26,11 @@ import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidParameterSpecException;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -57,6 +49,7 @@ public class InitialScreen extends Activity {
     private String serverIp;
     private ExecutorService ex;
     ServerReceiver socketServerThread;
+    private String stringedKey;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +62,10 @@ public class InitialScreen extends Activity {
         SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
         name = sharedPref.getString("user_name", "nada");
         serverIp = sharedPref.getString("serverIp", "");
-        String stringedKey = sharedPref.getString("user_key", "key");
+        stringedKey = sharedPref.getString("user_key", "key");
+
+
+
 
         if (stringedKey.equals("key") || name.equals("nada")) {
             Intent intent = new Intent(InitialScreen.this, MainActivity.class);
@@ -78,13 +74,12 @@ public class InitialScreen extends Activity {
             byte[] decodedKey = Base64.decode(stringedKey.getBytes(), Base64.DEFAULT);
             SecretKey keytmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
             key = new SecretKeySpec(keytmp.getEncoded(), "AES");
+
+
+            ex = Executors.newFixedThreadPool(2);
+            socketServerThread = new ServerReceiver();
+            ex.submit(socketServerThread);
         }
-
-        // server starting
-        ex = Executors.newFixedThreadPool(10);
-        socketServerThread = new ServerReceiver();
-        ex.submit(socketServerThread);
-
 
         btnContact.setOnClickListener(new View.OnClickListener() {
 
@@ -94,7 +89,7 @@ public class InitialScreen extends Activity {
                 if (txtPeerName.getText().toString().trim().length() > 0 && message.getText().toString().length() > 0) {
 
                     // Todo (check) Server stop
-                    socketServerThread.killIt();
+                    Killer.getInstance().setRunning(false);
 
                     String myName = name;
                     String peerName = txtPeerName.getText().toString();
@@ -108,8 +103,6 @@ public class InitialScreen extends Activity {
                     rd.nextBytes(random);
 
                     byte[] rndEnc = org.bouncycastle.util.encoders.Base64.encode(random);
-                    System.out.println("Nonce: " + new String(rndEnc));
-                    System.out.println("Nonce length:" + rndEnc.length);
                     toEncrypt = new String(rndEnc) + myName + "|" + peerName;
 
                     try {
@@ -126,26 +119,23 @@ public class InitialScreen extends Activity {
                         System.arraycopy(output, 0, toSend, iv.length, output.length);
 
                         byte[] keyEnc = org.bouncycastle.util.encoders.Base64.encode(key.getEncoded());
-                        System.out.println("Key: " + new String(keyEnc));
 
                         byte[] encoded = org.bouncycastle.util.encoders.Base64.encode(toSend);
-                        System.out.println("Encoded: " + Arrays.toString(encoded));
 
-                        ExecutorService executor = Executors.newFixedThreadPool(5);
                         Callable<String> callable = new Sender(encoded, serverIp, 8080);
-                        Future<String> send = executor.submit(callable);
+                        Future<String> send = ex.submit(callable);
 
                         KdcReply kdcReply = new KdcReply(send, key);
 
                         if (new String(rndEnc).equals(kdcReply.getNonce()) && peerName.equals(kdcReply.getPeerName())) {
 
                             // handshake (mutual authentication) with peer
-
-                            Callable<Boolean> callableAuthenticator = new Authenticator(kdcReply.getPeerIp(), 9000, kdcReply.getTicket(), kdcReply.getSessionKey());
-                            Future<Boolean> authenticated = executor.submit(callableAuthenticator);
+                            Callable<Boolean> callableAuthenticator = new Authenticator(kdcReply.getPeerIp(), 6666, kdcReply.getTicket(), kdcReply.getSessionKey());
+                            Future<Boolean> authenticated = ex.submit(callableAuthenticator);
 
 
                             try {
+
                                 if (authenticated.get()) {
                                     SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
                                     SharedPreferences.Editor editor = sharedPref.edit();
@@ -203,6 +193,7 @@ public class InitialScreen extends Activity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_delete_key) {
+            Killer.getInstance().setRunning(false);
             SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = sharedPref.edit();
             editor.putString("user_name", "nada");
@@ -226,59 +217,102 @@ public class InitialScreen extends Activity {
         private BufferedReader in;
         private PrintWriter pw;
         private String buffer;
-        private boolean running = true;
+        private String tempKey ="tempKey";
+        private String tempName ="tempName";
+        private String nonce3;
 
         public void sendMessage(String s) {
             pw.println(s);
             pw.flush();
         }
 
-        public void killIt() {
-            try {
-                pw.close();
-                in.close();
-                cSocket.close();
-                sSocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            running = false;
-        }
-
         @Override
         public void run() {
             try {
-                sSocket = new ServerSocket(9000);
+                sSocket = new ServerSocket(6666);
                 cSocket = sSocket.accept();
                 pw = new PrintWriter(cSocket.getOutputStream(), true);
-                while (running) {
+                while (Killer.getInstance().getRunning()) {
                     in = new BufferedReader(new InputStreamReader(cSocket.getInputStream()));
                     buffer = in.readLine();
 
-                    // Todo handle messages
-                    serverHandleIncomingRequest(buffer);
-                    if (buffer.equals("exit")) {
-                        running = false;
-                        pw.close();
-                        in.close();
+                    String toSend = serverHandleIncomingRequest(buffer, cSocket.getInetAddress().getHostAddress());
+                    sendMessage(toSend);
+
+                    buffer = in.readLine();
+
+                    if(handleNonce3(buffer)){
+
+                        sendMessage(CryptoUtil.encrypt("authenticated", tempKey));
+                        Killer.getInstance().setRunning(false);
+
+                        SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
+                        SharedPreferences.Editor editor = sharedPref.edit();
+                        editor.putString("sessionKey", tempKey);
+                        editor.putString("peerIp", cSocket.getInetAddress().getAddress().toString());
+                        editor.putString("peerName", tempName);
+                        editor.commit();
+
+                        Intent intent = new Intent(InitialScreen.this, ChatActivity.class);
+                        startActivity(intent);
+                    } else {
+                        cSocket.close();
+                        cSocket = sSocket.accept();
+                        pw = new PrintWriter(cSocket.getOutputStream(), true);
+
                     }
                 }
+                sSocket.close();
+
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
         }
+
+        private Boolean handleNonce3(String buffer) {
+            String decryptedMsg = CryptoUtil.decrypt(buffer, tempKey );
+            if (nonce3.equals(decryptedMsg)){
+                return true;
+            }
+        return false;
+
+
+        }
+
+
+        private String serverHandleIncomingRequest(String msg, String userIp){
+
+            //Todo msg = ticket+|+encrypted(nonce)
+            // verify ticket decrypt nonce and reply with encrypted(nonce+nonce)
+            String[] msgSplit = msg.split("\\|");
+            String encryptedTicket = msgSplit[0];
+            String encryptedNonce2 = msgSplit[1];
+
+            byte[]ivTicket = Arrays.copyOfRange(encryptedTicket.getBytes(), 0 , 24);
+            byte[] ticket = Arrays.copyOfRange(encryptedTicket.getBytes(), 24, encryptedTicket.getBytes().length);
+
+
+
+
+            String decryptedTicket = CryptoUtil.decryptWithIv(new String(ticket), stringedKey  , ivTicket);
+            String[] ticketSplit = new String(decryptedTicket).split("\\|");
+
+            tempKey = ticketSplit[2];
+            tempName = ticketSplit[0];
+
+            if (ticketSplit[1].equals(userIp)) {
+                String decryptedNonce = CryptoUtil.decrypt(encryptedNonce2 , tempKey);
+                nonce3 = CryptoUtil.create_nonce();
+                String toSend = CryptoUtil.encrypt(decryptedNonce +"|" + nonce3, tempKey);
+                return toSend;
+            }
+            return "user in not authenticated";
+        }
+
     }
 
 
-    private void serverHandleIncomingRequest(String msg){
 
-        //Todo msg = ticket+|+encrypted(nonce)
-        // verify ticket decrypt nonce and reply with encrypted(nonce+nonce)
-
-
-
-    }
 
 }
 

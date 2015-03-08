@@ -22,23 +22,17 @@ public class KdcReply {
     private String peerIp;
     private String ticket;
     private String sessionKey;
-    private byte[] msg;
     private byte[] iv;
-    private byte[] encrypted;
 
 
     public KdcReply(Future<String> send, Key key) {
         try {
             String received = send.get();
-            msg = new byte[received.getBytes().length];
-            msg = received.getBytes();
-            encrypted = new byte[received.getBytes().length - 28];
-            encrypted = Arrays.copyOfRange(msg, 28, received.getBytes().length);
+            byte[] msg = received.getBytes();
+            byte[] encrypted = Arrays.copyOfRange(msg, 28, received.getBytes().length);
 
             iv = new byte[16];
             iv = Arrays.copyOfRange(msg, 4 , 28);
-            /*System.out.println("IV: "+ new String(iv));
-            System.out.println("msg: "+ new String(msg));*/
 
             byte[] ivDec = org.bouncycastle.util.encoders.Base64.decode(iv);
             byte[] encryptedDec = org.bouncycastle.util.encoders.Base64.decode(encrypted);
@@ -50,7 +44,6 @@ public class KdcReply {
             String decryptedString = new String(decrypted);
             String[] decryptedArray = decryptedString.split("\\|");
 
-            System.out.println("Decrypted Session Key: "+ new String(decryptedArray[3]));
 
             this.nonce = decryptedArray[0];
             this.peerName = decryptedArray[1];

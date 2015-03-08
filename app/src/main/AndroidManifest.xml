@@ -10,7 +10,8 @@
         android:allowBackup="true"
         android:icon="@drawable/iconapp"
         android:label="@string/app_name"
-        android:theme="@style/ChatAppTheme" >
+        android:theme="@style/ChatAppTheme"
+        android:debuggable="true" >
         <activity
             android:name=".InitialScreen"
             android:label="@string/app_name"

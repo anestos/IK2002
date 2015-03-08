@@ -8,7 +8,6 @@ import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Base64;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -16,36 +15,18 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
-
-import org.bouncycastle.util.Arrays;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.AlgorithmParameters;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.spec.InvalidParameterSpecException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 
 
 public class ChatActivity extends Activity {
@@ -63,6 +44,7 @@ public class ChatActivity extends Activity {
     private String peerIp;
     private String initialMessageToSend;
     private String initialMesssage;
+    private String stringedKey;
 
 
     @Override
@@ -79,6 +61,7 @@ public class ChatActivity extends Activity {
         peerName = sharedPref.getString("peerName", "empty");
         peerIp = sharedPref.getString("peerIp", "empty");
         initialMesssage = sharedPref.getString("initialMessage", "empty");
+        stringedKey = sharedPref.getString("sessionKey", "key");
 
         listMessages = new ArrayList<>();
 
@@ -91,7 +74,7 @@ public class ChatActivity extends Activity {
             socketServerThread = new ServerReceiver();
             ex.submit(socketServerThread);
         } else {
-            initialMessageToSend = encrypt_message(initialMesssage);
+            initialMessageToSend = CryptoUtil.encrypt(initialMesssage, stringedKey);
             socketClientThread = new ClientReceiver(initialMessageToSend);
             ex.submit(socketClientThread);
             Message im = new Message(name, initialMesssage, true);
@@ -107,11 +90,11 @@ public class ChatActivity extends Activity {
                 appendMessage(m);
 
                 if (initialMesssage.equals("empty")) {
-                    String encrypted = encrypt_message(m.getMessage());
+                    String encrypted = CryptoUtil.encrypt(m.getMessage(), stringedKey);
                     socketServerThread.sendMessage(encrypted);
                 } else {
 
-                    String encrypted = encrypt_message(m.getMessage());
+                    String encrypted = CryptoUtil.encrypt(m.getMessage(), stringedKey);
                     socketClientThread.sendMessage(encrypted);
                 }
 
@@ -150,7 +133,7 @@ public class ChatActivity extends Activity {
             editor.putString("sessionKey", "empty");
             editor.putString("peerIP", "empty");
             editor.putString("initialMessage", "empty");
-
+            editor.commit();
 
             Intent intent = new Intent(ChatActivity.this, InitialScreen.class);
             startActivity(intent);
@@ -248,15 +231,14 @@ public class ChatActivity extends Activity {
                     in = new BufferedReader(new InputStreamReader(cSocket.getInputStream()));
 
                     buffer = in.readLine();
+                    decrypt_and_show(buffer, stringedKey);
 
-                    decrypt_and_show(buffer);
-
-                    if (buffer.equals("exit")) {
-                        running = false;
-                        pw.close();
-                        in.close();
-                    }
                 }
+                pw.close();
+                in.close();
+                cSocket.close();
+                sSocket.close();
+
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -299,82 +281,22 @@ public class ChatActivity extends Activity {
                     input = new BufferedReader(inputStream);
 
                     buffer = input.readLine();
-                    decrypt_and_show(buffer);
-
-                    if (buffer.equals("exit")) {
-                        running = false;
-                        pw.close();
-                        input.close();
-                    }
+                    decrypt_and_show(buffer, stringedKey);
                 }
+                pw.close();
+                input.close();
+                cSocket.close();
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
         }
     }
 
-    private Boolean decrypt_and_show(String buffer) {
-
-        byte[] bufferDec = org.bouncycastle.util.encoders.Base64.decode(buffer);
-
-        SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
-        String stringedKey = sharedPref.getString("sessionKey", "key");
-
-
-        byte[] decodedKey = Base64.decode(stringedKey.getBytes(), Base64.DEFAULT);
-        SecretKey keyTmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
-        Key myKey = new SecretKeySpec(keyTmp.getEncoded(), "AES");
-
-        byte[] iv;
-        iv = java.util.Arrays.copyOfRange(bufferDec, 0, 16);
-
-        byte[] encrypted;
-        encrypted = java.util.Arrays.copyOfRange(bufferDec, 16, bufferDec.length);
-
-        Cipher cipher;
-        try {
-            cipher = Cipher.getInstance("AES/CTR/NoPadding", "BC");
-            cipher.init(Cipher.DECRYPT_MODE, myKey, new IvParameterSpec(iv));
-            byte[] decrypted = cipher.doFinal(encrypted);
-
-            Message msg = new Message(peerName, new String(decrypted), false);
+    private void decrypt_and_show(String buffer, String sessionKey) {
+            Message msg = new Message(peerName, CryptoUtil.decrypt(buffer, sessionKey), false);
             appendMessage(msg);
-
-        } catch (NoSuchAlgorithmException | NoSuchProviderException | NoSuchPaddingException | InvalidAlgorithmParameterException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
-            e.printStackTrace();
-        }
-        return true;
-
     }
 
-    private String encrypt_message(String message) {
-        Cipher cipher;
-        SharedPreferences sharedPref = getSharedPreferences("myStorage", Context.MODE_PRIVATE);
-        String stringedKey = sharedPref.getString("sessionKey", "key");
 
-
-        byte[] decodedKey = Base64.decode(stringedKey.getBytes(), Base64.DEFAULT);
-        SecretKey keyTmp = new SecretKeySpec(decodedKey, 0, decodedKey.length, "PBKDF2WithHmacSHA1");
-        Key myKey = new SecretKeySpec(keyTmp.getEncoded(), "AES");
-        byte[] iv = null;
-        byte[] output = null;
-        try {
-
-            cipher = Cipher.getInstance("AES/CTR/NoPadding", "BC");
-            cipher.init(Cipher.ENCRYPT_MODE, myKey);
-            AlgorithmParameters params = cipher.getParameters();
-            iv = params.getParameterSpec(IvParameterSpec.class).getIV();
-            System.out.println("" + iv.length);
-            output = cipher.doFinal(message.getBytes());
-
-        } catch (NoSuchAlgorithmException | NoSuchProviderException | NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException | InvalidParameterSpecException | InvalidKeyException e) {
-            e.printStackTrace();
-        }
-
-        byte[] everything = Arrays.concatenate(iv, output);
-
-        return Base64.encodeToString(everything, Base64.DEFAULT);
-
-    }
 
 }

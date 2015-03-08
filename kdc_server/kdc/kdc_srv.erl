@@ -136,7 +136,7 @@ handler(Socket) ->
 	end.
 
 construct_ticket(Username, Ip_addr, Session_key, Peer_key) ->
-	Clear = [Username, Ip_addr, Session_key],
+	Clear = [Username,"|", Ip_addr,"|", Session_key],
 	{Iv, Cipher} = encrypt(list_to_binary(Clear), Peer_key),
 	[Iv, Cipher].
 
