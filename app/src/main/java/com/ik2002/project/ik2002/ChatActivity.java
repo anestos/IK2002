@@ -18,6 +18,7 @@ import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -124,9 +125,9 @@ public class ChatActivity extends Activity {
         if (id == R.id.action_close_conversation) {
             // close session
             if (initialMesssage.equals("empty")) {
-                socketServerThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
+                socketServerThread.serverCloseSocket();
             } else {
-                socketClientThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
+                socketClientThread.clientCloseSocket();
             }
 
             Killer.getInstance().setChatting(false);
@@ -146,9 +147,9 @@ public class ChatActivity extends Activity {
             Killer.getInstance().setChatting(false);
             Killer.getInstance().setRunning(true);
             if (initialMesssage.equals("empty")) {
-                socketServerThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
+                socketServerThread.serverCloseSocket();
             } else {
-                socketClientThread.sendMessage(CryptoUtil.encrypt("exit", stringedKey));
+                socketClientThread.clientCloseSocket();
             }
 
             editor.putString("sessionKey", "empty");
@@ -224,6 +225,17 @@ public class ChatActivity extends Activity {
             pw.println(s);
             pw.flush();
         }
+        public void serverCloseSocket(){
+            sendMessage(CryptoUtil.encrypt("exit", stringedKey));
+            try {
+                pw.close();
+                in.close();
+                cSocket.close();
+                sSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
 
         @Override
@@ -268,6 +280,16 @@ public class ChatActivity extends Activity {
             pw.flush();
         }
 
+        public void clientCloseSocket(){
+            sendMessage(CryptoUtil.encrypt("exit", stringedKey));
+            try {
+                pw.close();
+                input.close();
+                cSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
         @Override
         public void run() {
@@ -298,6 +320,7 @@ public class ChatActivity extends Activity {
         String decrypted = CryptoUtil.decrypt(buffer, sessionKey);
         if (decrypted.equals("exit")) {
             Killer.getInstance().setChatting(false);
+
             showToast("Connection lost");
         } else {
             Message msg = new Message(peerName, decrypted, false);
