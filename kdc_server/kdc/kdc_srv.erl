@@ -1,5 +1,5 @@
 -module(kdc_srv).
--compile(export_all).
+-export([add_client/2, handler/1]).
 
 -define(STORAGE, "store.dat").
 
@@ -8,13 +8,10 @@
 		crypto_key = cryptoKey}).
 
 add_client(Username, Ipaddr) ->
-	Key = gen_key(Username, Ipaddr),
+	Key = gen_key(Ipaddr),
 	Client = #clients{user_name = Username,
 			ip_addr = Ipaddr,
 			crypto_key = Key},
-	io:format("Username: ~p~n", [Username]),
-	io:format("Ipaddr: ~p~n", [Ipaddr]),
-	io:format("Key: ~p~n", [Key]),
 	write2file(Client).
 
 write2file(Client) ->
@@ -32,11 +29,7 @@ try_read({error, _Reason}) ->
 try_read({ok, Terms}) ->
 	Terms.
 
-add2list([List], Client) ->
-	[Client | List].
-
-
-gen_key(Username, Ipaddr) ->
+gen_key(Ipaddr) ->
 	Password = getpass(),
 	{Salt, Iterations, DerivedLength} = {list_to_binary(Ipaddr), 4000, 32},
 	{ok, Key} = pbkdf2:pbkdf2(sha, Password, Salt, Iterations, DerivedLength),
@@ -76,36 +69,24 @@ getpass() ->
 find_client_addr(Address) ->
 	Terms = try_read(file:consult(?STORAGE)),
 	Result = lists:keyfind(Address, 3, Terms),
-	io:format("Result: ~p~n", [Result]),
 	Result.
 
 find_client_addr_name([Peer_name]) ->
-    io:format("Peer name to search: ~p~n", [Peer_name]),
 	Terms = try_read(file:consult(?STORAGE)),
 	Result = lists:keyfind(Peer_name, 2, Terms),
-	io:format("Result name: ~p~n", [Result]),
 	Result.
 	
 handler(Socket) ->
 	case gen_tcp:recv(Socket, 0) of
 		{ok, Data} ->
-			{ok, {Address, Port}} = inet:peername(Socket),
-		    io:format("Addr: ~p~n", [inet_parse:ntoa(Address)]),
-
+			{ok, {Address, _Port}} = inet:peername(Socket),
 			case find_client_addr(inet_parse:ntoa(Address)) of
 				#clients{user_name=Username,
 					ip_addr=Ip_addr,
 					crypto_key=Key} ->
-						io:format("Username: ~p~n", [Username]),
-						io:format("IP: ~p~n", [Ip_addr]),
-						io:format("Key: ~p~n", [Key]),
 						Clear = decrypt(Data, Key),
 						{Nonce, Msg} = get_message(Clear),
-						io:format("Clear: ~p~n", [Clear]),
 						Msg1 = binary_to_list(Msg),
-						io:format("Msg: ~p~n", [Msg1]),
-						Nonce1 = binary_to_list(Nonce),
-						io:format("Nonce: ~p~n", [Nonce1]),
 						{User_name, Peer_name} = extract_msg(Msg1),
 						case User_name of
 							Username ->
@@ -117,13 +98,12 @@ handler(Socket) ->
 									Ip_addr, Peer_session_key, Peer_key),
 								Reply = construct_reply(Nonce,
 									Peer_name, Peer_ip, Peer_session_key, Ticket, Key),
-								gen_tcp:send(Socket, Reply),
-								io:format("replying: ~p~n", [Reply]);
+								gen_tcp:send(Socket, Reply);
 							_ -> io:format("User not found~n")
 						end;
 
 
-				[] -> io:format("User not foun!")
+				[] -> io:format("User not found!")
 			end,
 			gen_tcp:close(Socket),
 			handler(Socket);
@@ -148,10 +128,7 @@ extract_msg(Msg) ->
 decrypt(EncData, Key) ->
 	% First 16 bytes are the IV
 	% The rest is the cipher
-	io:format("Encoded data: ~p~n", [EncData]),
 	Data = base64:decode(EncData),
-	KeyEnc = base64:encode(Key),
-	io:format("Key: ~p~n", [KeyEnc]),
 	Data_size = bit_size(Data),
 	Cipher_size = Data_size - 128,
 	<<Iv:128/bitstring, Cipher:Cipher_size/bitstring>> = Data,
@@ -164,36 +141,6 @@ encrypt(Data, Key) ->
 	CipherEnc = base64:encode(Cipher),
 	{IvEnc, CipherEnc}.
 
-% First 8 bytes of payload is the nonce
+% First 8 bytes (96bytes b64 encoded) of payload are the nonce
 get_message(<<Nonce:96/bitstring, Msg/bitstring>>) ->
 	{Nonce, Msg}.
-
-tester(Address) ->
-	#clients{user_name=Un, ip_addr=Ip, crypto_key=C} = find_client_addr(Address),
-	io:format("Username: ~p~n", [Un]),
-	io:format("IP: ~p~n", [Ip]),
-	io:format("Key: ~p~n", [C]),
-	C.
-
-% Input handler test case
-ihandler(Socket) ->
-	case gen_tcp:recv(Socket, 0) of
-		{ok, Data} ->
-			printer(binary_to_list(Data)),
-			gen_tcp:close(Socket),
-			handler(Socket);
-		{error, closed} -> ok
-	end.
-
-printer(Data) ->
-	%io:format("Data size: ~p~n", [bit_size(A)]),
-	case Data of
-		"2" -> 
-			io:format("Data received: 2~n");
-		"3" ->
-			io:format("Going to sleep~n"),
-			timer:sleep(10000),
-			io:format("Data received: 3~n");
-		Other ->
-			io:format("Something: ~p~n", [Other])
-	end.
